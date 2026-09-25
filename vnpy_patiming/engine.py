@@ -65,6 +65,8 @@ class PatimingEngine:
         self._alert_seq = 0
         self.last_prices: dict[str, float] = {}
         self._last_submit: dict[str, datetime] = {}
+        self._summary_sig = None
+        self._summary_seq = 0
         self.delivery_handlers: list = []
         self._running = False
         self._thread: threading.Thread | None = None
@@ -418,6 +420,73 @@ class PatimingEngine:
             self._sync_tasks()
             self._data_health(now)
             self.deliver_pending(now)
+            self._emit_summary(now)
+
+    def _armed_snapshot(self) -> list[tuple]:
+        snapshot: list[tuple] = []
+        for (symbol, _tf), task in self.tasks.items():
+            for alert in task.alerts.values():
+                if alert.lifecycle != "ARMED":
+                    continue
+                snapshot.append((symbol, alert.direction, alert.signal_id,
+                                 round(alert.trigger["level"], 6), alert.alert_id))
+        return sorted(snapshot)
+
+    def _expiring_instructions(self) -> list[dict]:
+        out: list[dict] = []
+        for row in self.db.fetch_by_status(("ACTIVE",)):
+            remaining = row["remaining_bars"]
+            if remaining is not None and remaining <= self.cfg["expiring_soon_bars"]:
+                out.append({"instruction_id": row["instruction_id"],
+                            "source": row["source"],
+                            "remaining_bars": remaining})
+        return sorted(out, key=lambda item: item["instruction_id"])
+
+    def _emit_summary(self, now: datetime) -> None:
+        """决策 D1：明细照发；每标的×方向只聚合最高 confidence 的最佳机会。"""
+        best: dict[tuple[str, str], dict] = {}
+        for (symbol, _tf), task in self.tasks.items():
+            for alert in task.alerts.values():
+                if alert.lifecycle != "ARMED":
+                    continue
+                key = (symbol, alert.direction)
+                score = self._rule_confidence(task, alert)
+                current = best.get(key)
+                if current is None or score > current["confidence"]:
+                    best[key] = {"symbol": symbol, "direction": alert.direction,
+                                 "signal_id": alert.signal_id,
+                                 "confidence": score,
+                                 "trigger": alert.trigger["level"],
+                                 "alert_id": alert.alert_id}
+        items = [best[k] for k in sorted(best)]
+        expiring = self._expiring_instructions()
+        signature = json.dumps({"items": items, "expiring": expiring},
+                               ensure_ascii=False, sort_keys=True)
+        if signature == self._summary_sig:
+            return
+        if not items and not expiring and self._summary_sig is None:
+            self._summary_sig = signature
+            return
+        self._summary_sig = signature
+        self._summary_seq += 1
+        alert_id = f"SUM-{now.strftime('%Y%m%d')}-{self._summary_seq:04d}"
+        payload = {
+            "event_type": "signal.summary",
+            "schema_version": "1.0",
+            "event_time": now_str(self.clock),
+            "payload": {
+                "generated_at": now_str(self.clock),
+                "items": items,
+                "expiring_instructions": expiring,
+            },
+        }
+        keys = ";".join(sorted(f"{row['source']}|{row['instruction_id']}"
+                               for row in self.db.fetch_by_status(("ACTIVE",))))
+        self.db.insert_alert_event(alert_id, "signal.summary", None, "SUMMARY",
+                                   keys, payload, payload["event_time"])
+        self.db.insert_outbox(alert_id, "signal.summary", payload,
+                              payload["event_time"])
+        self.db.commit()
 
     def _expire_wall(self, now: datetime) -> None:
         for row in self.db.fetch_by_status(("ACTIVE", "WARMING_UP", "PAUSED")):
@@ -631,6 +700,17 @@ class PatimingEngine:
         self.db.commit()
 
     def _alert_payload(self, task: MonitoringTask, alert: Alert, event_type: str) -> dict:
+        conf = self._rule_confidence(task, alert)
+        multi_tf = False
+        for (sym, tf), other in self.tasks.items():
+            if sym != task.symbol or tf == task.exec_tf:
+                continue
+            if any(a.lifecycle == "ARMED" and a.direction == alert.direction
+                   for a in other.alerts.values()):
+                multi_tf = True
+                break
+        if multi_tf:
+            conf = round(min(0.95, conf + 0.10), 3)  # 决策 D2：多周期同向加成
         first = None
         for key in alert.instruction_keys:
             src, iid = key.split("|", 1)
@@ -658,7 +738,8 @@ class PatimingEngine:
                 "invalidation": alert.invalidation,
                 "lifecycle": alert.lifecycle,
                 "expire_bars_exec": self.cfg["expire_bars_exec"],
-                "confidence": self._rule_confidence(task, alert),
+                "confidence": conf,
+                "multi_tf_confirmed": multi_tf,
                 "gap_open": False,
                 "data_mode": alert.data_mode,
                 "source": (first or {}).get("source", ""),

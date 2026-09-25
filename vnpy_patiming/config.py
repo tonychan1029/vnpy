@@ -81,6 +81,7 @@ DEFAULT_CONFIG: dict = {
     "outbox_max_attempts": 5,
     "outbox_backoff_base_s": 0.2,
     "request_min_interval_s": 0.0,
+    "expiring_soon_bars": 3,
     "default_context_tag": "breakout",
 }
 
