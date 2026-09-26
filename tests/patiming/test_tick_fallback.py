@@ -6,6 +6,7 @@ def test_stale_switches_to_tick_fallback_hook(tmp_path, clock):
     calls = []
     eng.tick_fallback_hooks.append(calls.append)
     submit_ok(eng, iid="INS-1", key_levels={})
+    feed_bars(eng, clock, 3)
     clock.advance(30)
     eng.reconcile()
     assert calls == ["rb2501.SHFE"]
