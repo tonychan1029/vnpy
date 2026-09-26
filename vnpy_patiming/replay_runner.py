@@ -31,7 +31,7 @@ class HistoryFeed:
 
 def run(symbol: str = "RB0", exchange: str = "SHFE",
         as_of: str | None = None, watch: int = 60,
-        min_rr: float = 1.0) -> dict:
+        min_rr: float = 1.0, push: bool = False) -> dict:
     out_dir = os.path.join(os.path.dirname(__file__), "output")
     os.makedirs(out_dir, exist_ok=True)
     for suffix in ("", "-wal", "-shm"):
@@ -89,6 +89,13 @@ def run(symbol: str = "RB0", exchange: str = "SHFE",
                           "max_stop_atr": 50.0, "bar_min_atr": 0.05,
                           "bar_max_atr": 50.0, "overlap_max": 1.0},
                          clock=lambda: clock["t"], run_mode="REPLAY")
+    if push:
+        from .delivery import make_redis_stream_handler
+
+        url = os.environ.get("PATIMING_REDIS_URL", "redis://127.0.0.1:6379/0")
+        eng.register_delivery_handler(
+            make_redis_stream_handler(url, os.environ.get(
+                "PATIMING_STREAM", "patiming:alerts")))
     instruction = {
         "instruction_id": "REPLAY-SEL", "producer_revision": 1,
         "symbol": f"{symbol.lower()}.{exchange}",
@@ -102,9 +109,12 @@ def run(symbol: str = "RB0", exchange: str = "SHFE",
     assert r["ok"], r
     eng.reconcile()
     future = [b for b in bars1m if anchor < b.datetime]
+    watch = min(watch, len(future))
     for bar in future[:watch]:
         clock["t"] = bar.datetime
         eng.on_1m_bar(bar)
+        if push:
+            eng.reconcile()  # 与 LIVE 调度线程同一 reconcile 函数（仅时钟源不同）
     eng.flush_due(future[watch - 1].datetime if future else anchor)
     task = eng.tasks.get((f"{symbol.lower()}.{exchange}", "1m"))
     alerts = [(a.signal_id, a.lifecycle) for a in task.alerts.values()] if task else []
@@ -115,3 +125,26 @@ def run(symbol: str = "RB0", exchange: str = "SHFE",
 
 if __name__ == "__main__":
     run()
+
+
+def scan_window(symbol: str = "RB0", exchange: str = "SHFE",
+                start: str = "2026-09-22", end: str = "2026-09-24",
+                step_minutes: int = 120, watch: int = 60,
+                min_rr: float = 1.0) -> list[dict]:
+    feed = AkshareOneMinuteFeed()
+    bars = feed.fetch_1m(symbol, exchange)
+    dates = sorted({b.datetime.strftime("%Y-%m-%d") for b in bars
+                    if start <= b.datetime.strftime("%Y-%m-%d") <= end
+                    and 9 <= b.datetime.hour <= 15})
+    results: list[dict] = []
+    for d in dates:
+        for hh in range(9, 15, max(1, step_minutes // 60)):
+            as_of = f"{d} {hh:02d}:00"
+            r = run(symbol=symbol, exchange=exchange, as_of=as_of,
+                    watch=watch, min_rr=min_rr, push=True)
+            results.append({"as_of": as_of, "reason": r["selection_reason"],
+                            "entry": r["entry"], "alerts": r["alerts"]})
+    passed = [r for r in results if r["entry"]]
+    print(f"[窗口汇总] 时点={len(results)} 入池={len(passed)} "
+          f"明细={[(r['as_of'], r['reason']) for r in results]}")
+    return results
