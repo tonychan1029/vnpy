@@ -167,9 +167,7 @@ timing_instruction
 ### 5.1 双层监控循环
 
 - **K 线收盘层（信号识别）**：每根执行周期K线收盘后，对池内全部标的跑一遍信号检测，产出 / 更新挂单预案。**识别一律在收盘后**，保证确定性。
-- **Tick 层（触发跟踪）**：盘中实时检查所有 ARMED 预案。触发位与失效位语义严格区分：
-  - **触发位**：tick 穿越即 TRIGGERED，不可逆，即刻推送。
-  - **失效位**：tick 穿越只置 provisional（推送 signal.at_risk，预案保留在 ARMED）；**收盘确认穿越才 INVALIDATED**；收盘收回则清除 provisional 并推送 signal.restored。一根长影线不会永久杀掉预案。下游执行层如需更严格的 tick 硬失效，可在自身侧实现，引擎语义以本条为准。
+- **收盘层（触发跟踪，D5 全收盘基）**：触发位/失效位均以K线收盘评估——收盘穿越触发位即 TRIGGERED（不可逆）；收盘穿越失效位即 INVALIDATED；tick 不参与信号语义（D7：tick 仅作兜底合成的K线原料）。原 tick provisional（at_risk/restored）机制自 D5 起停发。
 - **到期管理**：预案带 `expire_bars`（执行周期，缺省 3 根），超时未触发自动转 EXPIRED 并推送。
 - **跳空约定**：开盘跳空越过触发位按触发处理，标记 `gap_open=true`，成交价按开盘价报告下游。
 - **降级触发模式**：`data_mode = akshare_poll`（无 tick）时，触发与 provisional 失效判定降级到 1m 收盘驱动——语义不变、粒度变粗；payload 必带 `data_mode` 字段（ctp_tick / akshare_poll），下游按数据粒度决定执行策略。
