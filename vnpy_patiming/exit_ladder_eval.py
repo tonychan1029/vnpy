@@ -7,11 +7,21 @@
 
 from __future__ import annotations
 
+import glob
 import os
 import sys
+from datetime import datetime
+
+import pandas as pd
+
+from vnpy.trader.constant import Exchange
+from vnpy.trader.object import BarData
 
 from vnpy_patiming.adapters import AkshareOneMinuteFeed
 
+from vnpy_patiming.adapters import AkshareOneMinuteFeed
+
+TRADEPLAY_DATA = os.environ.get("TRADEPLAY_DATA", r"D:/AIprj/tradereplay/data")
 QUANT_REPO = os.environ.get("QUANT_REPO_PATH", r"D:/AIprj/quant-repo")
 sys.path.insert(0, QUANT_REPO)
 
@@ -35,21 +45,31 @@ def confirmed_pivots(h: list, l: list, k: int = 2) -> list[tuple]:
 
 def evaluate_symbol(symbol: str, exchange: str,
                     feed: AkshareOneMinuteFeed) -> dict:
-    bars = feed.fetch_minutes(symbol, exchange, period="60")
+    prod = symbol.rstrip("0123456789")
+    hits = glob.glob(rf"{TRADEPLAY_DATA}/60m/*/{prod}/{prod}.csv")
+    if not hits:
+        raise FileNotFoundError(f"60m/{symbol}")
+    df = pd.read_csv(hits[0])
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df[(df["datetime"].dt.year >= 2015) & (df["datetime"].dt.year <= 2025)]
+    bars = [BarData(symbol=symbol, exchange=Exchange(exchange), datetime=r.datetime,
+                    gateway_name="TRADEPLAY", open_price=float(r.open),
+                    high_price=float(r.high), low_price=float(r.low),
+                    close_price=float(r.close), volume=float(r.volume))
+            for r in df.itertuples(index=False)]
     h = [b.high_price for b in bars]
     l = [b.low_price for b in bars]
     c = [b.close_price for b in bars]
-    tr = [max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
-          if i else h[0] - l[0] for i in range(len(bars))]
-    atr = [sum(tr[max(0, i - 13) : i + 1]) / len(tr[max(0, i - 13) : i + 1])
-           for i in range(len(bars))]
+    import numpy as np
+    from talib import ATR
+
+    atr = ATR(np.asarray(h, dtype=float), np.asarray(l, dtype=float),
+              np.asarray(c, dtype=float), timeperiod=14)
     stats = {p: {"n": 0, "win": 0, "loss": 0, "open": 0,
                  "sum_r": 0.0, "sum_bars": 0} for p in POLICIES}
 
     sys.path.insert(0, QUANT_REPO)
     from pa.background import PABackgroundEngine
-
-    import pandas as pd
 
     pb = PABackgroundEngine()
     frame = pd.DataFrame({"high": h, "low": l, "close": c})
