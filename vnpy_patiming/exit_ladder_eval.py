@@ -1,15 +1,19 @@
-"""出场阶梯 A/B 评估（真实 60m 多年数据）：多策略同场对比。
+"""出场阶梯 A/B 评估（真实 60m 多年数据）：选品级入场 + 多策略出场对比。
 
-入场模型：样本时点每 2 根收盘取一个，方向=最近确认摆动点方向，
-止损=反向极值界，风险=risk=|entry-stop|。
-出场策略：t1_0.5 / t1_1.0 / t1_2.0 目标阶梯；
-pivot_trail=摆动点移动止损；counter_pivot=反向摆动点确认离场（择时信号联动）；
-time_20=超时平仓。
+入场模型（选品级）：PABackgroundEngine 趋势定方向；聚类支撑/压力定结构；
+回调触及 + 确认收盘 -> entry=确认收盘价；止损=位外侧 0.25×ATR。
+出场策略：t1_1.0 / t1_2.0 / t1_3.0 目标阶梯；pivot_trail；counter_pivot（择时联动）；time_20。
 """
 
 from __future__ import annotations
 
+import os
+import sys
+
 from vnpy_patiming.adapters import AkshareOneMinuteFeed
+
+QUANT_REPO = os.environ.get("QUANT_REPO_PATH", r"D:/AIprj/quant-repo")
+sys.path.insert(0, QUANT_REPO)
 
 SYMBOLS = [("RB0", "SHFE"), ("CU0", "SHFE"), ("AG0", "SHFE"),
            ("M0", "DCE"), ("MA0", "CZCE"), ("TA0", "CZCE")]
@@ -35,7 +39,6 @@ def evaluate_symbol(symbol: str, exchange: str,
     h = [b.high_price for b in bars]
     l = [b.low_price for b in bars]
     c = [b.close_price for b in bars]
-    pivots = confirmed_pivots(h, l)
     tr = [max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
           if i else h[0] - l[0] for i in range(len(bars))]
     atr = [sum(tr[max(0, i - 13) : i + 1]) / len(tr[max(0, i - 13) : i + 1])
@@ -43,22 +46,42 @@ def evaluate_symbol(symbol: str, exchange: str,
     stats = {p: {"n": 0, "win": 0, "loss": 0, "open": 0,
                  "sum_r": 0.0, "sum_bars": 0} for p in POLICIES}
 
-    for a in range(60, len(bars) - HORIZON - 2, 2):
-        past = [p for p in pivots if p[2] <= a]
-        if not past:
-            continue
-        last = past[-1]
-        direction = 1.0 if last[0] == "H" else -1.0
+    sys.path.insert(0, QUANT_REPO)
+    from pa.background import PABackgroundEngine
+
+    import pandas as pd
+
+    pb = PABackgroundEngine()
+    frame = pd.DataFrame({"high": h, "low": l, "close": c})
+
+    for a in range(300, len(bars) - HORIZON - 2, 2):
+        structure = pb.analyze_market_structure_and_zone(frame.iloc[a - 299 : a + 1])
+        trend = structure["trend"]
         entry = c[a]
-        stop = min(l[a - 20 : a + 1]) if direction == 1.0 else max(h[a - 20 : a + 1])
+        if trend == "BULL_TREND":
+            direction, support, resistance = 1.0, float(structure["nearest_support"]), float(structure["nearest_resistance"])
+        elif trend == "BEAR_TREND":
+            direction, support, resistance = -1.0, float(structure["nearest_resistance"]), float(structure["nearest_support"])
+        else:
+            continue
+        stop = (support - 0.25 * atr[a]) if direction == 1.0 else (resistance + 0.25 * atr[a])
         risk = (entry - stop) * direction
         if risk <= 0:
             continue
+        # v2 回调确认：上一根触及结构位、当前收盘收回位内侧（spec：二次测试确认）
+        prev_lo, prev_hi = l[a - 1], h[a - 1]
+        tol = 0.25 * atr[a]
+        touched = (prev_lo <= support + tol) if direction == 1.0 else (prev_hi >= resistance - tol)
+        confirmed = (c[a - 1] >= support) if direction == 1.0 else (c[a - 1] <= resistance)
+        entry_zone_ok = (entry - support) * direction > 0
+        if not (touched and confirmed and entry_zone_ok):
+            continue
         best = entry
         trail = stop
+        pivots = confirmed_pivots(h, l)
+        fwd = [p for p in pivots if p[3] > a]
         res: dict[str, tuple[str, float, int]] = {}
         fi = 0
-        fwd = [p for p in pivots if p[2] > a]
         for i in range(1, HORIZON + 1):
             bi = a + i
             best = max(best, h[bi]) if direction == 1.0 else min(best, l[bi])
