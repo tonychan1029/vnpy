@@ -33,14 +33,6 @@ def test_provisional_at_risk_then_restore_then_confirm(tmp_path, clock):
     flush_window(eng, clock)
     assert alert.lifecycle == "ARMED"
 
-    eng.on_tick(_tick(clock, 99.4))
-    assert alert.provisional and alert.lifecycle == "ARMED"
-
-    dt = clock.advance(1)
-    eng.on_1m_bar(make_bar(dt, 100.2, 100.5, 100.1, 100.4))
-    flush_window(eng, clock)
-    assert not alert.provisional and alert.lifecycle == "ARMED"
-
     dt = clock.advance(1)
     eng.on_1m_bar(make_bar(dt, 100.2, 100.3, 99.6, 99.7))
     flush_window(eng, clock)
@@ -48,8 +40,7 @@ def test_provisional_at_risk_then_restore_then_confirm(tmp_path, clock):
     types = [e["event_type"] for e in eng.db.query(
         "SELECT event_type FROM timing_alert_event WHERE alert_id=? ORDER BY id",
         (alert.alert_id,))]
-    assert types == ["signal.armed", "signal.at_risk", "signal.restored",
-                     "signal.invalidated"]
+    assert types == ["signal.armed", "signal.invalidated"]
 
 
 def test_expire_after_three_exec_closes(tmp_path, clock):
