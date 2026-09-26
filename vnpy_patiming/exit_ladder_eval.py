@@ -67,6 +67,7 @@ def evaluate_symbol(symbol: str, exchange: str,
               np.asarray(c, dtype=float), timeperiod=14)
     stats = {p: {"n": 0, "win": 0, "loss": 0, "open": 0,
                  "sum_r": 0.0, "sum_bars": 0} for p in POLICIES}
+    stats_trend: dict[tuple[str, str], dict] = {}
 
     sys.path.insert(0, QUANT_REPO)
     from pa.background import PABackgroundEngine
@@ -96,6 +97,7 @@ def evaluate_symbol(symbol: str, exchange: str,
         entry_zone_ok = (entry - support) * direction > 0
         if not (touched and confirmed and entry_zone_ok):
             continue
+        tr_label = "BULL" if trend == "BULL_TREND" else "BEAR"
         best = entry
         trail = stop
         pivots = confirmed_pivots(h, l)
@@ -145,22 +147,45 @@ def evaluate_symbol(symbol: str, exchange: str,
                     bucket["loss"] += 1
             else:
                 bucket["open"] += 1
-    return stats
+        for p in POLICIES:
+            tb = stats_trend.setdefault((tr_label, p), {
+                "n": 0, "win": 0, "loss": 0, "open": 0,
+                "sum_r": 0.0, "sum_bars": 0})
+            tb["n"] += 1
+            if p in res:
+                _s, price, i = res[p]
+                r = (price - entry) * direction / risk
+                tb["sum_r"] += r
+                tb["sum_bars"] += i
+                if r > 0:
+                    tb["win"] += 1
+                else:
+                    tb["loss"] += 1
+            else:
+                tb["open"] += 1
+    return stats, stats_trend
 
 
 def main() -> None:
     feed = AkshareOneMinuteFeed()
     total = {p: {"n": 0, "win": 0, "loss": 0, "open": 0,
                  "sum_r": 0.0, "sum_bars": 0} for p in POLICIES}
+    trend_total: dict[tuple[str, str], dict] = {}
     for symbol, exchange in SYMBOLS:
         try:
-            stats = evaluate_symbol(symbol, exchange, feed)
+            stats, stats_trend = evaluate_symbol(symbol, exchange, feed)
         except Exception as exc:  # noqa: BLE001
             print(symbol, "SKIP:", exc)
             continue
         for p, b in stats.items():
             for k in ("n", "win", "loss", "open", "sum_r", "sum_bars"):
                 total[p][k] += b[k]
+        for (tr, p), b in stats_trend.items():
+            tb = trend_total.setdefault((tr, p), {
+                "n": 0, "win": 0, "loss": 0, "open": 0,
+                "sum_r": 0.0, "sum_bars": 0})
+            for k in ("n", "win", "loss", "open", "sum_r", "sum_bars"):
+                tb[k] += b[k]
     print(f"{'policy':<16}{'n':>6}{'win%':>8}{'avgR':>8}{'avgBars':>9}")
     for p in POLICIES:
         b = total[p]
@@ -169,6 +194,13 @@ def main() -> None:
         ar = round(b["sum_r"] / decided, 3) if decided else 0.0
         ab = round(b["sum_bars"] / max(b["n"], 1), 1)
         print(f"{p:<16}{b['n']:>6}{wr:>8}{ar:>8}{ab:>9}")
+    print("\n-- 分 regime 出场对比 --")
+    for (tr, p) in sorted(trend_total):
+        b = trend_total[(tr, p)]
+        decided = b["win"] + b["loss"]
+        wr = round(100 * b["win"] / decided, 1) if decided else 0.0
+        ar = round(b["sum_r"] / decided, 3) if decided else 0.0
+        print(f"{tr:<6}{p:<20}n={b['n']:>5} win%={wr:>6} avgR={ar:>8}")
 
 
 if __name__ == "__main__":
