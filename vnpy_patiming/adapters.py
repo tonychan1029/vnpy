@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.object import BarData
 
+from .market import canonical_symbol
 
 class AkshareOneMinuteFeed:
     def __init__(self) -> None:
@@ -22,10 +23,12 @@ class AkshareOneMinuteFeed:
     def fetch_minutes(self, symbol: str, exchange: str = "SHFE",
                       period: str = "1") -> list[BarData]:
         """period: '1'/'15'/'30'/'60'，新浪分钟线（真实行情）。"""
-        sina_symbol = symbol.split(".")[0].upper() if "." in symbol else symbol.upper()
+        base = symbol.split(".")[0]
+        exch = exchange.split(".")[-1] if "." in exchange else exchange
+        code = canonical_symbol(base, exch)
+        sina_symbol = base.upper()
         interval = Interval.MINUTE if period == "1" else None
         frame = self._ak.futures_zh_minute_sina(symbol=sina_symbol, period=period)
-        code = sina_symbol.lower() if exchange == "SHFE" else sina_symbol
         bars: list[BarData] = []
         for row in frame.to_dict("records"):
             interval_value = interval

@@ -10,6 +10,15 @@ from .config import TIMEFRAME_MINUTES
 
 EPOCH = datetime(1970, 1, 1)
 
+UPPER_EXCHANGES = {"CZCE", "CFFEX", "GFEX"}
+
+
+def canonical_symbol(base: str, exchange: str) -> str:
+    """vnpy 惯例：SHFE/DCE/INE 小写基础代码，CZCE/CFFEX/GFEX 大写。"""
+    base = base.strip()
+    exch = exchange.strip().upper()
+    return base if exch in UPPER_EXCHANGES else base.lower()
+
 
 def window_index(dt: datetime, interval_minutes: int) -> int:
     return int((dt - EPOCH).total_seconds()) // (interval_minutes * 60)

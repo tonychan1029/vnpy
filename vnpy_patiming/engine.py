@@ -300,8 +300,10 @@ class PatimingEngine:
 
     def _clean(self, p: dict) -> dict:
         base, _, exch = p["symbol"].partition(".")
+        from .market import canonical_symbol
+
         return {
-            "symbol": f"{base.lower()}.{exch.upper()}",
+            "symbol": f"{canonical_symbol(base, exch)}.{exch.upper()}",
             "selection_timeframe": p["selection_timeframe"],
             "exec_timeframe": p["exec_timeframe"],
             "context_tag": p.get("context_tag"),
