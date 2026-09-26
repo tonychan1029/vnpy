@@ -53,10 +53,14 @@ class PatimingEngine:
         cfg_overrides: dict | None = None,
         clock=datetime.now,
         data_mode: str = "ctp_tick",
+        run_mode: str = "LIVE",
     ) -> None:
         self.cfg = build_config(cfg_overrides)
         self.clock = clock
         self.data_mode = data_mode
+        if run_mode not in ("LIVE", "REPLAY"):
+            raise ValueError("run_mode must be LIVE or REPLAY")
+        self.run_mode = run_mode
         self.db = Database(db_path)
         self.lock = threading.RLock()
         self.clocks: dict[str, MarketClock] = {}
@@ -849,6 +853,8 @@ class PatimingEngine:
     def start(self) -> None:
         if self._running:
             return
+        if self.run_mode == "REPLAY":
+            raise RuntimeError("REPLAY 模式不运行调度线程：请手动逐根喂入K线")
         self._running = True
 
         def loop() -> None:

@@ -41,6 +41,7 @@ class ReplayEvaluator:
             engine = PatimingEngine(
                 f"{tmp}/replay.db", {"warmup_min_exec": self.cfg["warmup_min_exec"]},
                 clock=lambda: bars[-1].datetime if bars else datetime_now(),
+                run_mode="REPLAY",
             )
             engine.register_delivery_handler(lambda event: None)
             result = engine.submit_instruction(source, dict(instruction))

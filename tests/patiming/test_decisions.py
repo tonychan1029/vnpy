@@ -69,3 +69,16 @@ def test_multi_tf_confirmed_flag(tmp_path, clock):
         "signal.armed")["payload"]
     assert payload["multi_tf_confirmed"] is True  # 决策 D2
     assert payload["confidence"] > 0.05
+
+
+def test_replay_mode_forbids_scheduler(tmp_path, clock):
+    import pytest
+
+    from vnpy_patiming.engine import PatimingEngine
+
+    eng = PatimingEngine(str(tmp_path / "db.sqlite"),
+                         {"warmup_min_exec": 4}, clock=clock,
+                         run_mode="REPLAY")
+    with pytest.raises(RuntimeError):
+        eng.start()
+    assert not eng._running
