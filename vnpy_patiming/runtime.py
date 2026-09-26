@@ -93,6 +93,7 @@ class MonitoringTask:
         self.detectors = build_detectors()
         self.alerts: dict[str, Alert] = {}
         self.fake_log: list = []
+        self.invalid_log: list = []
         self.contributions: dict[tuple[str, str], dict] = {}
         self.warm_exec = 0
         self.exec_count = 0
@@ -214,6 +215,12 @@ class MonitoringTask:
     def _transition(self, alert: Alert, lifecycle: str, event_type: str) -> None:
         from_lf = alert.lifecycle
         alert.lifecycle = lifecycle
+        if lifecycle == "INVALIDATED" and alert.category in (
+                "structure_pullback", "range_edge"):
+            self.invalid_log.append({
+                "level": alert.invalidation["level"],
+                "bar_time": self.bars[-1].datetime if self.bars else None,
+            })
         self.engine.emit_alert(self, alert, event_type, from_lf)
 
     # ------------- detection -------------

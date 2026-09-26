@@ -246,31 +246,45 @@ class StructurePullbackDetector(BaseDetector):
     signal_id = "STRUCTURE_PULLBACK"
     family = "structure_pullback"
     rank = 22
-    order_type = "limit"
+    order_type = "stop"
 
     def detect(self, ctx: SignalContext) -> list[AlertDraft]:
         bar, atr = ctx.bar, ctx.atr
         out: list[AlertDraft] = []
         tol = ctx.cfg["level_touch_atr"] * atr
+        window = ctx.cfg["pb_retest_window"]
+        cooldown = ctx.cfg["pb_cooldown_bars"]
         for lv in ctx.levels.by_kind("prior_low", "prior_high", "gap_edge"):
             long_side = lv.kind in ("prior_low", "gap_edge")
             direction = "long" if long_side else "short"
+            if not ctx.allowed(direction):
+                continue
+            # 冷却：该位最近失效后 pb_cooldown_bars 根内不再武装（PK R3 共识）
+            recent = [e for e in ctx.invalid_log
+                      if e.get("level") == lv.price
+                      and ctx.now - e["bar_time"] <= _dt.timedelta(minutes=cooldown)]
+            if recent:
+                continue
             touched = bar.low_price <= lv.price + tol if long_side else bar.high_price >= lv.price - tol
             held = bar.close_price >= lv.price if long_side else bar.close_price <= lv.price
-            if not (touched and held) or not ctx.allowed(direction):
+            confirmed = held and bar.close_price >= (bar.high_price + bar.low_price) / 2
+            if not (lv.status == "tested" and touched and confirmed):
                 continue
             buf = ctx.buffer()
             ref = f"level:{lv.kind}"
             if long_side:
-                level = lv.price + buf
-                stop = lv.price - ctx.cfg["level_touch_atr"] * atr
-                out.append(_mk_draft(self, ctx, direction, "touch_below", level,
-                                     ref, stop, ref, ("close_below", lv.price)))
+                retest_low = bar.low_price
+                out.append(_mk_draft(self, ctx, direction, "cross_above",
+                                     bar.high_price + buf, "confirm_bar_high",
+                                     retest_low - 0.25 * atr, f"retest_low:{lv.kind}",
+                                     ("close_below", retest_low)))
             else:
-                level = lv.price - buf
-                stop = lv.price + ctx.cfg["level_touch_atr"] * atr
-                out.append(_mk_draft(self, ctx, direction, "touch_above", level,
-                                     ref, stop, ref, ("close_above", lv.price)))
+                retest_high = bar.high_price
+                out.append(_mk_draft(self, ctx, direction, "cross_below",
+                                     bar.low_price - buf, "confirm_bar_low",
+                                     retest_high + 0.25 * atr, f"retest_high:{lv.kind}",
+                                     ("close_above", retest_high)))
+                ref = ref
         return out
 
 

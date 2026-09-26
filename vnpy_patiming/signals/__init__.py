@@ -59,6 +59,7 @@ class SignalContext:
         now: Any,
         price_tick: float,
         fake_log: list[FakeBreakEvent],
+        invalid_log: list | None = None,
     ) -> None:
         self.bars = bars
         self.atr = atr or 0.0
@@ -71,6 +72,7 @@ class SignalContext:
         self.now = now
         self.price_tick = price_tick
         self.fake_log = fake_log
+        self.invalid_log = invalid_log if invalid_log is not None else []
 
     @property
     def bar(self) -> BarData:

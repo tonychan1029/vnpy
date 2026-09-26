@@ -77,6 +77,9 @@ DEFAULT_CONFIG: dict = {
     "dbl_tol_atr": 0.3,
     "wedge_decay_ratio": 0.67,
     "wedge_body_max": 0.45,
+    "pb_retest_window": 20,
+    "pb_cooldown_bars": 10,
+    "require_approval": False,
     "require_approval": False,
     "expire_bars_exec": 3,
     "warmup_min_exec": 42,  # max(3 * atr_period, 10)
