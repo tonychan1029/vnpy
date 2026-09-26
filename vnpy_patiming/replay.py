@@ -38,6 +38,10 @@ class ReplayEvaluator:
             instruction: dict, source: str = "strategy:replay") -> dict:
         if not bars:
             raise ValueError("REPLAY 需要真实K线：bars 为空将回退系统时钟（违反 D8）")
+        instruction = dict(instruction)
+        if instruction.pop("valid_until", None) is not None:
+            instruction["reason_note"] = (instruction.get("reason_note", "")
+                                          + "｜[replay] valid_until 已剥离（墙钟字段仅 LIVE）")
         outcomes: list[AlertOutcome] = []
         with tempfile.TemporaryDirectory() as tmp:
             engine = PatimingEngine(
