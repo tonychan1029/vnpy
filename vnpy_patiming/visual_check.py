@@ -131,6 +131,7 @@ def main() -> None:
          "max_stop_atr": 50.0, "bar_min_atr": 0.05, "bar_max_atr": 50.0,
          "overlap_max": 1.0},
         clock=lambda: clock_ref["t"],
+        run_mode="REPLAY",
     )
     submit_result = eng.submit_instruction("strategy:visual", {
         "instruction_id": "VIS-1", "producer_revision": 1,

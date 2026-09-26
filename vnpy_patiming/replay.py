@@ -36,6 +36,8 @@ class ReplayEvaluator:
 
     def run(self, symbol: str, exchange: str, bars: list[BarData],
             instruction: dict, source: str = "strategy:replay") -> dict:
+        if not bars:
+            raise ValueError("REPLAY 需要真实K线：bars 为空将回退系统时钟（违反 D8）")
         outcomes: list[AlertOutcome] = []
         with tempfile.TemporaryDirectory() as tmp:
             engine = PatimingEngine(
