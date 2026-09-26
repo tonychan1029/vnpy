@@ -578,7 +578,11 @@ class PatimingEngine:
 
     @staticmethod
     def _contribution(row: dict) -> dict:
-        cats = row["signal_categories"]
+        raw_cats = row["signal_categories"]
+        try:
+            cats = json.loads(raw_cats)
+        except (TypeError, ValueError):
+            cats = raw_cats
         raw_levels = json.loads(row["key_levels"] or "{}")
         levels: dict[str, float] = {}
         for key, value in raw_levels.items():
@@ -588,7 +592,7 @@ class PatimingEngine:
             "instruction_id": row["instruction_id"],
             "direction": row["direction"] or "both",
             "context_tag": row["context_tag"],
-            "signal_categories": set(json.loads(cats)) if cats != "ALL" else "ALL",
+            "signal_categories": "ALL" if cats == "ALL" else set(cats),
             "key_levels": levels,
             "reason_code": row["reason_code"],
             "reason_note": row["reason_note"],

@@ -45,3 +45,4 @@ lab/
 # Patiming runtime
 logs/
 patiming.db*
+vnpy_patiming/output/
