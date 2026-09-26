@@ -13,7 +13,7 @@ from vnpy_patiming.adapters import AkshareOneMinuteFeed
 
 SYMBOLS = [("RB0", "SHFE"), ("CU0", "SHFE"), ("AG0", "SHFE"),
            ("M0", "DCE"), ("MA0", "CZCE"), ("TA0", "CZCE")]
-POLICIES = ["t1_0.5", "t1_1.0", "t1_2.0", "pivot_trail",
+POLICIES = ["t1_1.0", "t1_2.0", "t1_3.0", "pivot_trail",
             "counter_pivot", "time_20"]
 HORIZON = 40
 
@@ -65,7 +65,7 @@ def evaluate_symbol(symbol: str, exchange: str,
             trail = (max(trail, best - 1.0 * risk) if direction == 1.0
                      else min(trail, best + 1.0 * risk))
             lo_t, hi_t = l[bi], h[bi]
-            for name, mult in (("t1_0.5", 0.5), ("t1_1.0", 1.0), ("t1_2.0", 2.0)):
+            for name, mult in (("t1_1.0", 1.0), ("t1_2.0", 2.0), ("t1_3.0", 3.0)):
                 if name in res:
                     continue
                 level = entry + direction * mult * risk
