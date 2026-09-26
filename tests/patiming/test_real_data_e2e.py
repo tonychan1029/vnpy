@@ -135,7 +135,12 @@ def test_real_replay_labels_every_alert(tmp_path):
     instruction = {
         "instruction_id": "REPLAY-1", "producer_revision": 1,
         "symbol": VT, "selection_timeframe": "1m", "exec_timeframe": "1m",
-        "context_tag": "breakout", "signal_categories": ["breakout"],
+        "context_tag": "breakout",
+        # 全部已实现信号参与真实数据回放（含二期/三期检测器）
+        "signal_categories": ["breakout", "fake_breakout", "second_breakout",
+                              "ema_pullback", "structure_pullback",
+                              "range_edge", "h2_l2", "double_top_bottom",
+                              "wedge"],
         "key_levels": {"prior_high": round(level, 2)},
         "reason_code": "BREAKOUT_WATCH", "reason_note": "replay rolling high",
     }
@@ -149,6 +154,11 @@ def test_real_replay_labels_every_alert(tmp_path):
              "REPLACED", "CANCELLED"}
     for outcome in report["alerts"]:
         assert outcome["result"] in valid or outcome["lifecycle"] in valid
+        known = {"BREAKOUT_KEY_LEVEL", "FAKE_BREAKOUT_REVERSE",
+                 "SECOND_BREAKOUT", "EMA20_PULLBACK", "STRUCTURE_PULLBACK",
+                 "RANGE_EDGE_REVERSAL", "H2L2_TREND", "DOUBLE_TOP",
+                 "DOUBLE_BOTTOM", "WEDGE_THREE_PUSH"}
+        assert outcome["signal_id"] in known
         assert outcome["mfe"] >= 0 and outcome["mae"] >= 0
     for bucket in report["summary"].values():
         assert bucket["win_rate"] is None or 0.0 <= bucket["win_rate"] <= 1.0

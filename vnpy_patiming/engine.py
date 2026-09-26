@@ -177,8 +177,19 @@ class PatimingEngine:
         chash = content_hash(business)
 
         if existing is None:
-            status = "INVALID" if deep_err else ("REVOKED" if desired == "REVOKED" else "ACTIVE")
-            feedback = deep_err or ("REVOKED_AT_WRITE" if status == "REVOKED" else "ACCEPTED")
+            pending = (
+                self.cfg["require_approval"]
+                and caller_source.startswith("llm:")
+                and desired == "ACTIVE"
+            )
+            status = "INVALID" if deep_err else (
+                "PENDING_APPROVAL" if pending
+                else ("REVOKED" if desired == "REVOKED" else "ACTIVE")
+            )
+            feedback = deep_err or {
+                "PENDING_APPROVAL": "AWAITING_APPROVAL",
+                "REVOKED": "REVOKED_AT_WRITE",
+            }.get(status, "ACCEPTED")
             self.db.execute(
                 "INSERT INTO timing_instruction (source, instruction_id, producer_revision,"
                 " desired_status, symbol, selection_timeframe, exec_timeframe, context_tag,"
@@ -355,6 +366,33 @@ class PatimingEngine:
         self.db.insert_instruction_event(
             source, iid, rev, event_type, from_st, to_st, "producer", ts, snapshot=snap
         )
+
+    def approve_instruction(self, source: str, instruction_id: str) -> dict:
+        """人工审批：PENDING_APPROVAL -> ACTIVE（spec 8 审批队列）。"""
+        with self.lock:
+            return self._approval(source, instruction_id, approve=True)
+
+    def reject_instruction(self, source: str, instruction_id: str) -> dict:
+        """人工审批：PENDING_APPROVAL -> REVOKED（终态）。"""
+        with self.lock:
+            return self._approval(source, instruction_id, approve=False)
+
+    def _approval(self, source: str, instruction_id: str, approve: bool) -> dict:
+        row = self.db.fetch_instruction(source, instruction_id)
+        if row is None:
+            return fail("not_found")
+        if row["status"] != "PENDING_APPROVAL":
+            return fail("not_pending")
+        to_status = "ACTIVE" if approve else "REVOKED"
+        ts = now_str(self.clock)
+        self.db.update_instruction_engine(source, instruction_id, to_status,
+                                          "APPROVED" if approve else "REJECTED")
+        self.db.insert_instruction_event(
+            source, instruction_id, row["producer_revision"], "STATUS_CHANGED",
+            "PENDING_APPROVAL", to_status, "admin", ts, snapshot={"approval": approve},
+        )
+        self.db.commit()
+        return {"ok": True, "status": to_status}
 
     # ================= feed routing =================
 

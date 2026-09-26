@@ -21,6 +21,7 @@ class AlertOutcome:
     stop: float
     target1: float
     lifecycle: str
+    result: str = ""
     bars_to_outcome: int | None = None
     mfe: float | None = None
     mae: float | None = None
@@ -77,14 +78,17 @@ class ReplayEvaluator:
                     break
         if result is None:
             result = {"TRIGGERED": "TRIGGERED_OPEN", "ARMED": "EXPIRED_OPEN"}.get(
-                alert.lifecycle, alert.lifecycle)
-        return AlertOutcome(
+                alert.lifecycle, "EXPIRED_OPEN" if alert.lifecycle == "EXPIRED"
+                else alert.lifecycle)
+        outcome = AlertOutcome(
             alert_id=alert.alert_id, signal_id=alert.signal_id,
             family=alert.family, direction=alert.direction,
             trigger=entry, stop=alert.stop["level"],
             target1=alert.targets["t1"]["price"], lifecycle=alert.lifecycle,
+            result=result or "OPEN",
             bars_to_outcome=hit_bar, mfe=round(mfe, 6), mae=round(mae, 6),
         )
+        return outcome
 
     def _report(self, outcomes: list[AlertOutcome]) -> dict:
         summary: dict[str, dict] = {}

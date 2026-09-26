@@ -31,6 +31,7 @@ SIGNAL_CATEGORIES = {
     "range_edge",
     "h2_l2",
     "double_top_bottom",
+    "wedge",
 }
 
 DIRECTIONS = {"long", "short", "both"}
@@ -74,6 +75,9 @@ DEFAULT_CONFIG: dict = {
     "h2_window_bars": 10,
     "dbl_max_sep_bars": 40,
     "dbl_tol_atr": 0.3,
+    "wedge_decay_ratio": 0.67,
+    "wedge_body_max": 0.45,
+    "require_approval": False,
     "expire_bars_exec": 3,
     "warmup_min_exec": 42,  # max(3 * atr_period, 10)
     "warmup_min_selection": 1,

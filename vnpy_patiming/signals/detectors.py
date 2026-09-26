@@ -485,6 +485,90 @@ class DoubleTopBottomDetector(BaseDetector):
         return abs(b - a)
 
 
+class WedgeThreePushDetector(BaseDetector):
+    """楔形三推（spec 6.3 #9，实验）：三推幅度递减 + 第三推动能衰减。"""
+
+    category = "wedge"
+    signal_id = "WEDGE_THREE_PUSH"
+    family = "wedge"
+    rank = 17
+
+    @staticmethod
+    def _avg_body_since(ctx: SignalContext, since) -> float:
+        from ..structures import body_ratio
+
+        push_bars = [b for b in ctx.bars if b.datetime >= since]
+        if not push_bars:
+            return 1.0
+        return sum(body_ratio(b) for b in push_bars) / len(push_bars)
+
+    @staticmethod
+    def _low_between(lows, t1, t2):
+        inside = [p for p in lows if t1 < p.pivot_bar_time < t2]
+        return min(inside, key=lambda p: p.price) if inside else None
+
+    @staticmethod
+    def _high_between(highs, t1, t2):
+        inside = [p for p in highs if t1 < p.pivot_bar_time < t2]
+        return max(inside, key=lambda p: p.price) if inside else None
+
+    @staticmethod
+    def _low_before(lows, t):
+        before = [p for p in lows if p.pivot_bar_time < t]
+        return min(before, key=lambda p: p.price) if before else None
+
+    @staticmethod
+    def _high_before(highs, t):
+        before = [p for p in highs if p.pivot_bar_time < t]
+        return max(before, key=lambda p: p.price) if before else None
+
+    def detect(self, ctx: SignalContext) -> list[AlertDraft]:
+        out: list[AlertDraft] = []
+        if ctx.context_tag != "reversal":
+            return out
+        atr = ctx.atr
+        highs = [p for p in ctx.pivots.confirmed if p.kind == "H"]
+        lows = [p for p in ctx.pivots.confirmed if p.kind == "L"]
+        buf = ctx.buffer()
+        ratio = ctx.cfg["wedge_decay_ratio"]
+        body_max = ctx.cfg["wedge_body_max"]
+
+        if len(highs) >= 3 and len(lows) >= 2:
+            h1, h2, h3 = highs[-3], highs[-2], highs[-1]
+            l1 = self._low_between(lows, h1.pivot_bar_time, h2.pivot_bar_time)
+            l2 = self._low_between(lows, h2.pivot_bar_time, h3.pivot_bar_time)
+            l0 = self._low_before(lows, h1.pivot_bar_time)
+            if l0 and l1 and l2:
+                a1 = h1.price - l0.price
+                a2 = h2.price - l1.price
+                a3 = h3.price - l2.price
+                decay = self._avg_body_since(ctx, l2.pivot_bar_time)
+                if (0 < a3 < a2 < a1 and a3 <= a1 * ratio
+                        and decay <= body_max and ctx.allowed("short")):
+                    out.append(_mk_draft(self, ctx, "short", "cross_below",
+                                         ctx.bar.low_price - buf, "signal_bar_low",
+                                         h3.price + 0.25 * atr, "wedge_high_offset",
+                                         ("close_above", h3.price)))
+
+        if len(lows) >= 3 and len(highs) >= 2:
+            l1, l2, l3 = lows[-3], lows[-2], lows[-1]
+            h1 = self._high_between(highs, l1.pivot_bar_time, l2.pivot_bar_time)
+            h2 = self._high_between(highs, l2.pivot_bar_time, l3.pivot_bar_time)
+            h0 = self._high_before(highs, l1.pivot_bar_time)
+            if h0 and h1 and h2:
+                a1 = h0.price - l1.price
+                a2 = h1.price - l2.price
+                a3 = h2.price - l3.price
+                decay = self._avg_body_since(ctx, l3.pivot_bar_time)
+                if (0 < a3 < a2 < a1 and a3 <= a1 * ratio
+                        and decay <= body_max and ctx.allowed("long")):
+                    out.append(_mk_draft(self, ctx, "long", "cross_above",
+                                         ctx.bar.high_price + buf, "signal_bar_high",
+                                         l3.price - 0.25 * atr, "wedge_low_offset",
+                                         ("close_below", l3.price)))
+        return out
+
+
 DETECTOR_CLASSES = [
     BreakoutDetector,
     FakeBreakoutDetector,
@@ -494,6 +578,7 @@ DETECTOR_CLASSES = [
     RangeEdgeDetector,
     HighTwoLowTwoDetector,
     DoubleTopBottomDetector,
+    WedgeThreePushDetector,
 ]
 
 
