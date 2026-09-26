@@ -148,18 +148,11 @@ class MonitoringTask:
         self.pivots.update(bar)
         self._handle_gaps(bar)
 
-        # 1) close-confirmed invalidation / provisional restore
+        # 1) 收盘基失效（决策 D5：全收盘评估，无 tick 临时态）
         for alert in list(self.alerts.values()):
             if alert.lifecycle != "ARMED":
                 continue
-            crossed = self._close_crossed(bar, alert)
-            if alert.provisional:
-                if crossed:
-                    self._transition(alert, "INVALIDATED", "signal.invalidated")
-                else:
-                    alert.provisional = False
-                    self.engine.emit_alert(self, alert, "signal.restored", "ARMED")
-            elif crossed:
+            if self._close_crossed(bar, alert):
                 self._transition(alert, "INVALIDATED", "signal.invalidated")
 
         # 2) expiry countdown (exec clock)
@@ -202,13 +195,10 @@ class MonitoringTask:
                 lv.status = "tested"
 
     def on_price(self, price: float) -> None:
-        """Tick layer (ctp_tick) or 1m-close driver (akshare_poll, spec 5.1)."""
+        """收盘价驱动（决策 D5：全收盘基；poll 模式由 1m 收盘喂入）。"""
         for alert in list(self.alerts.values()):
             if alert.lifecycle != "ARMED":
                 continue
-            if not alert.provisional and alert.invalid_crossed(price):
-                alert.provisional = True
-                self.engine.emit_alert(self, alert, "signal.at_risk", "ARMED")
             if alert.tick_triggered(price):
                 self._transition(alert, "TRIGGERED", "signal.triggered")
 

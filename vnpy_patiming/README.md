@@ -19,6 +19,10 @@ PA 择时引擎（阶段一 + 二期信号 + 真实数据链路），实现对�
 
 ## 契约要点
 
+- **只预警、不入场**：信号在K线收盘确认 PA 形态后即为本系统终点；
+  payload 的 trigger/stop/targets 均为**人工决策参考位**，TRIGGERED 仅表示
+  参考关注位被触及，入场永远由人工完成。
+- **全收盘基（D5）**：形态确认、失效判定、量化计算一律以K线收盘评估。
 - key_levels 支持两套词表：引擎词表
   `prior_high/prior_low/range_top/range_bottom` 与选品词表
   `support/resistance`（入库自动映射），`swing_points` 忽略。
