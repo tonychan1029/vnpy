@@ -78,8 +78,15 @@ CREATE INDEX IF NOT EXISTS idx_instruction_status
     ON timing_instruction(status);
 CREATE INDEX IF NOT EXISTS idx_alert_event_alert
     ON timing_alert_event(alert_id, id);
+CREATE TABLE IF NOT EXISTS market_bars (
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    interval TEXT NOT NULL,
+    dt TEXT NOT NULL,
+    open REAL, high REAL, low REAL, close REAL, volume REAL,
+    PRIMARY KEY (symbol, exchange, interval, dt)
+);
 """
-
 
 def now_str(clock) -> str:
     return clock().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -114,8 +121,44 @@ class Database:
     def commit(self) -> None:
         self.conn.commit()
 
+    def save_bars(self, rows: list[dict]) -> int:
+        new = 0
+        for r in rows:
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO market_bars VALUES (?,?,?,?,?,?,?,?,?)",
+                (r["symbol"], r["exchange"], r["interval"], r["dt"],
+                 r["open"], r["high"], r["low"], r["close"], r["volume"]),
+            )
+            new += cur.rowcount
+        self.commit()
+        return new
+
+    def load_bars(self, symbol: str, exchange: str, interval: str) -> list[dict]:
+        return self.query(
+            "SELECT * FROM market_bars WHERE symbol=? AND exchange=? AND interval=? "
+            "ORDER BY dt", (symbol, exchange, interval),
+        )
+
     def atomic(self) -> sqlite3.Connection:
         return self.conn
+
+    def save_bars(self, rows: list[dict]) -> int:
+        new = 0
+        for r in rows:
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO market_bars VALUES (?,?,?,?,?,?,?,?,?)",
+                (r["symbol"], r["exchange"], r["interval"], r["dt"],
+                 r["open"], r["high"], r["low"], r["close"], r["volume"]),
+            )
+            new += cur.rowcount
+        self.commit()
+        return new
+
+    def load_bars(self, symbol: str, exchange: str, interval: str) -> list[dict]:
+        return self.query(
+            "SELECT * FROM market_bars WHERE symbol=? AND exchange=? AND interval=? "
+            "ORDER BY dt", (symbol, exchange, interval),
+        )
 
     # ---------------- instructions ----------------
 

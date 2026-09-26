@@ -30,7 +30,8 @@ class HistoryFeed:
 
 
 def run(symbol: str = "RB0", exchange: str = "SHFE",
-        as_of: str | None = None, watch: int = 60) -> dict:
+        as_of: str | None = None, watch: int = 60,
+        min_rr: float = 1.0) -> dict:
     out_dir = os.path.join(os.path.dirname(__file__), "output")
     os.makedirs(out_dir, exist_ok=True)
     for suffix in ("", "-wal", "-shm"):
@@ -43,6 +44,25 @@ def run(symbol: str = "RB0", exchange: str = "SHFE",
     feed = AkshareOneMinuteFeed()
     bars1m = feed.fetch_1m(symbol, exchange)
     bars60 = feed.fetch_minutes(symbol, exchange, period="60")
+    from .db import Database
+
+    code = symbol.lower() if exchange == "SHFE" else symbol
+    store = Database(os.path.join(out_dir, "bars_store.db"))
+    for rows, itv in ((bars1m, "1m"), (bars60, "60m")):
+        store.save_bars([{
+            "symbol": code, "exchange": exchange, "interval": itv,
+            "dt": b.datetime.strftime("%Y-%m-%d %H:%M:%S"),
+            "open": b.open_price, "high": b.high_price,
+            "low": b.low_price, "close": b.close_price,
+            "volume": b.volume} for b in rows])
+    bars1m = [BarData(symbol=code, exchange=Exchange(exchange),
+                      datetime=datetime.strptime(r["dt"], "%Y-%m-%d %H:%M:%S"),
+                      gateway_name="STORE", interval=Interval.MINUTE,
+                      open_price=r["open"], high_price=r["high"],
+                      low_price=r["low"], close_price=r["close"],
+                      volume=r["volume"])
+              for r in store.load_bars(code, exchange, "1m")]
+    print(f"[落库累积] 本地 1m 深度: {len(bars1m)}")
     import akshare as ak
 
     daily_frame = ak.futures_zh_daily_sina(symbol=symbol.upper())
@@ -54,7 +74,8 @@ def run(symbol: str = "RB0", exchange: str = "SHFE",
                      volume=float(r["volume"])) for r in daily_frame.to_dict("records")]
     anchor = datetime.strptime(as_of, "%Y-%m-%d %H:%M") if as_of else bars1m[-1].datetime
     hist = HistoryFeed(daily, bars60, [b for b in bars1m if b.datetime <= anchor], anchor)
-    scanner = MarketPullbackScanner(_load_config().get("scan", {}) or {})
+    scan_cfg = dict(_load_config().get("scan", {}) or {}, market_min_rr=min_rr)
+    scanner = MarketPullbackScanner(scan_cfg)
     item = {"symbol": symbol.upper(), "exchange": exchange}
     entry, reason = scanner._evaluate_symbol(hist, item, as_of=anchor)
     print(f"[选品@{anchor}] reason={reason} entry={'YES ' + entry.direction if entry else 'no'}")
