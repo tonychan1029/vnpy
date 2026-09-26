@@ -80,6 +80,7 @@ DEFAULT_CONFIG: dict = {
     "pb_retest_window": 20,
     "pb_cooldown_bars": 10,
     "require_approval": False,
+    "tick_fallback_on_stale": True,
     "require_approval": False,
     "expire_bars_exec": 3,
     "warmup_min_exec": 42,  # max(3 * atr_period, 10)

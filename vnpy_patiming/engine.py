@@ -68,6 +68,7 @@ class PatimingEngine:
         self._summary_sig = None
         self._summary_seq = 0
         self.delivery_handlers: list = []
+        self.tick_fallback_hooks: list = []  # fn(symbol) -> None：订阅 T口 tick
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -617,8 +618,22 @@ class PatimingEngine:
                 (symbol, exec_tf),
             ):
                 if stale and row["status"] == "ACTIVE":
-                    self._transition_instruction(row, "PAUSED", now, "FRESHNESS_GATE")
-                    task.cancel_all("data_pause")
+                    if self.cfg["tick_fallback_on_stale"] and self.tick_fallback_hooks:
+                        for fn in self.tick_fallback_hooks:
+                            fn(symbol)
+                        task.data_mode = "tick_fallback"
+                        self.db.update_instruction_engine(
+                            row["source"], row["instruction_id"], "PAUSED",
+                            "STALE_SWITCHED_TO_TICK_FALLBACK")
+                        self.db.insert_instruction_event(
+                            row["source"], row["instruction_id"],
+                            row["producer_revision"], "STATUS_CHANGED",
+                            "ACTIVE", "PAUSED", "engine", now_str(self.clock),
+                            snapshot={"reason": "TICK_FALLBACK_ON"})
+                        self.db.commit()
+                    else:
+                        self._transition_instruction(row, "PAUSED", now, "FRESHNESS_GATE")
+                        task.cancel_all("data_pause")
                     sig = (row["source"], row["instruction_id"])
                     if task.contributions.get(sig):
                         task.contributions[sig]["status"] = "PAUSED"
