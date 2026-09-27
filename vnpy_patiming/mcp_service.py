@@ -89,7 +89,16 @@ def main() -> None:  # pragma: no cover - manual entry point
         "PATIMING_DATA_MODE", "akshare_poll" if enable_poller else "ctp_tick"
     )
     db_path = os.environ.get("PATIMING_DB", "patiming.db")
-    engine = PatimingEngine(db_path, data_mode=data_mode)
+    require_approval = os.environ.get("PATIMING_REQUIRE_APPROVAL", "1").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    engine = PatimingEngine(
+        db_path,
+        {"require_approval": require_approval},
+        data_mode=data_mode,
+    )
     poller = None
 
     try:
