@@ -8,8 +8,17 @@ from __future__ import annotations
 
 import os
 import argparse
+from pathlib import Path
 
 from .engine import PatimingEngine
+
+
+def _configured_token() -> str:
+    token = os.environ.get("PATIMING_MCP_TOKEN", "")
+    token_file = os.environ.get("PATIMING_MCP_TOKEN_FILE", "")
+    if not token and token_file:
+        token = Path(token_file).read_text(encoding="utf-8").strip()
+    return token
 
 
 def build_service(engine: PatimingEngine):
@@ -18,7 +27,7 @@ def build_service(engine: PatimingEngine):
     except ImportError as exc:  # pragma: no cover - optional dep
         raise RuntimeError("pip install fastmcp to run the MCP service") from exc
 
-    token = os.environ.get("PATIMING_MCP_TOKEN", "")
+    token = _configured_token()
     mcp = FastMCP("PatimingEngine")
 
     def _check(token_arg: str) -> str | None:
@@ -67,23 +76,59 @@ def build_service(engine: PatimingEngine):
 
 
 def main() -> None:  # pragma: no cover - manual entry point
-    db_path = os.environ.get("PATIMING_DB", "patiming.db")
-    engine = PatimingEngine(db_path)
-    engine.start()
-    service = build_service(engine)
-    print(f"patiming auth configured: {bool(os.environ.get('PATIMING_MCP_TOKEN'))}", flush=True)
     parser = argparse.ArgumentParser(description="Patiming Engine MCP service")
     parser.add_argument("--transport", default="stdio", choices=["stdio", "streamable-http"])
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8801)
     args = parser.parse_args()
-    if args.transport != "stdio":
-        service.settings.host = args.host
-        service.settings.port = args.port
-        # Allow LAN/Tailscale Host headers in the local test network. Writes
-        # remain gated by PATIMING_MCP_TOKEN inside every tool.
-        service.settings.transport_security.enable_dns_rebinding_protection = False
-    service.run(transport=args.transport)
+
+    enable_poller = os.environ.get(
+        "PATIMING_ENABLE_POLLER", "0"
+    ).lower() in {"1", "true", "yes"}
+    data_mode = os.environ.get(
+        "PATIMING_DATA_MODE", "akshare_poll" if enable_poller else "ctp_tick"
+    )
+    db_path = os.environ.get("PATIMING_DB", "patiming.db")
+    engine = PatimingEngine(db_path, data_mode=data_mode)
+    poller = None
+
+    try:
+        redis_url = os.environ.get("PATIMING_REDIS_URL", "")
+        if redis_url:
+            from .delivery import make_redis_stream_handler
+
+            handler = make_redis_stream_handler(
+                redis_url, os.environ.get("PATIMING_STREAM", "patiming:alerts")
+            )
+            handler.ping()
+            engine.register_delivery_handler(handler)
+
+        if enable_poller:
+            from .quote_poller import QuotePoller
+
+            poller = QuotePoller(
+                engine,
+                interval_s=float(os.environ.get("PATIMING_POLL_INTERVAL_S", "5")),
+            )
+
+        engine.start()
+        if poller is not None:
+            poller.start()
+        service = build_service(engine)
+        print(f"patiming auth configured: {bool(_configured_token())}", flush=True)
+        run_kwargs = {}
+        if args.transport != "stdio":
+            # FastMCP 4 configures HTTP transports through run kwargs.
+            run_kwargs = {
+                "host": args.host,
+                "port": args.port,
+                "host_origin_protection": False,
+            }
+        service.run(transport=args.transport, **run_kwargs)
+    finally:
+        if poller is not None:
+            poller.stop()
+        engine.close()
 
 
 if __name__ == "__main__":

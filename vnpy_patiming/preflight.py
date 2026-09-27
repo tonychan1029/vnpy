@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 
 def check_db() -> tuple[bool, str]:
@@ -51,6 +52,18 @@ def check_redis() -> tuple[bool, str]:
         return False, f"Redis 失败: {exc}"
 
 
+def check_token() -> tuple[bool, str]:
+    token = os.environ.get("PATIMING_MCP_TOKEN", "")
+    token_file = os.environ.get("PATIMING_MCP_TOKEN_FILE", "")
+    if not token and token_file:
+        try:
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+        except OSError:
+            return False, f"token file unreadable: {token_file}"
+    return bool(token), "MCP token configured" if token else \
+        "PATIMING_MCP_TOKEN/PATIMING_MCP_TOKEN_FILE not configured"
+
+
 def main() -> int:
     failures = 0
     for name, (ok, message) in (
@@ -64,9 +77,9 @@ def main() -> int:
         print(f"[{mark}] {name}: {message}")
         if not ok:
             failures += 1
-    token = os.environ.get("PATIMING_MCP_TOKEN")
-    print(f"[{'PASS' if token else 'WARN'}] MCP token: "
-          f"{'已配置' if token else '未配置 PATIMING_MCP_TOKEN（写入面不可用）'}")
+    token_ok, token_message = check_token()
+    print(f"[{'PASS' if token_ok else 'WARN'}] MCP token: "
+          f"{token_message if not token_ok else '已配置'}")
     return 1 if failures else 0
 
 

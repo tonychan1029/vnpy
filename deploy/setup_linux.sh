@@ -15,16 +15,26 @@ pip install vnpy --no-deps
 pip install tzlocal numpy pandas loguru requests polars pyarrow \
   alphalens-reloaded fastmcp redis httpx akshare "peewee>=3.17.9"
 echo "[2/6] Copy code"
-mkdir -p /opt/aiprj/vnpy_patiming /opt/aiprj/quant-repo
+mkdir -p /opt/aiprj/vnpy_patiming
 cp -r vnpy_patiming/* /opt/aiprj/vnpy_patiming/
-cp -r vnpy /opt/aiprj/vnpy_pkg/
-echo "[3/6] Systemd services"
-cp deploy/patiming-engine.service deploy/patiming-mcp.service /etc/systemd/system/
+cp deploy/server_setup.sh /opt/aiprj/server_setup.sh
+echo "[3/6] Python path + systemd service"
+echo /opt/aiprj > /opt/aiprj/venv/lib/python3.12/site-packages/aiprj.pth
+SERVICE_SRC="${PATIMING_SERVICE_SRC:-../quant-repo/deploy}"
+cp "$SERVICE_SRC/patiming-engine.service" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable patiming-engine patiming-mcp
+systemctl enable patiming-engine
 echo "[4/6] Redis"
 apt-get install -y redis-server > /dev/null
-systemctl enable --now redis-server
+mkdir -p /etc/systemd/system/redis-server.service.d
+cat > /etc/systemd/system/redis-server.service.d/aiprj-port.conf << 'REDISEOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/redis-server /etc/redis/redis.conf --supervised systemd --daemonize no --port 6381
+REDISEOF
+systemctl daemon-reload
+systemctl restart redis-server
+systemctl enable redis-server
 echo "[5/6] Done. Run preflight:"
 echo "  python -m vnpy_patiming.preflight"
 echo "[6/6] Start engine:"
