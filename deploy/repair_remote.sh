@@ -26,7 +26,9 @@ ExecStart=
 ExecStart=/usr/bin/redis-server /etc/redis/redis.conf --supervised systemd --daemonize no --port 6381
 EOF
 systemctl daemon-reload
-systemctl restart redis-server
+if ! systemctl is-active --quiet redis-server; then
+    systemctl restart redis-server
+fi
 systemctl enable redis-server >/dev/null
 
 echo "[4/9] Install current engine code"
@@ -35,7 +37,12 @@ cp -a "$STAGE/vnpy_patiming/." /opt/aiprj/vnpy_patiming/
 echo /opt/aiprj > /opt/aiprj/venv/lib/python3.12/site-packages/aiprj.pth
 
 echo "[5/9] Install missing runtime dependency"
-/opt/aiprj/venv/bin/pip install --disable-pip-version-check akshare
+if compgen -G "$STAGE/wheels/*.whl" >/dev/null; then
+    /opt/aiprj/venv/bin/pip install --disable-pip-version-check \
+        --no-index --find-links "$STAGE/wheels" akshare
+else
+    /opt/aiprj/venv/bin/pip install --disable-pip-version-check akshare
+fi
 
 echo "[6/9] Install single-writer service unit"
 install -m 0644 "$STAGE/patiming-engine.service" /etc/systemd/system/patiming-engine.service
