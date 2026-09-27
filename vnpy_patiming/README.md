@@ -63,5 +63,16 @@ engine.submit_instruction("strategy:demo", {...})  # 见 docs 契约
 实弹冒烟（交易时段、需显式开启）：
 `LIVE_SMOKE=1 python -m vnpy_patiming.live_smoke`
 
+## Linux 生产入口
+
+生产使用 `python -m vnpy_patiming.mcp_service --transport streamable-http`
+作为单进程入口：同进程内运行引擎调度线程、新浪快照 1m 合成轮询、
+Redis Stream outbox 投递和 MCP 写入面，保证 SQLite 只有一个写者。
+`patiming-mcp.service` 旧双进程单元已废弃。
+
+生产 Redis 端口为 `127.0.0.1:6381`，不要复用 RAGFlow Docker Redis 的
+6379。完整盘前检查、端口拓扑、故障处置和修复脚本说明见
+`quant-repo/INSTALL_NOTES.md` §七“生产运维手册”。
+
 已知边界：指令热更新当前按任务重建处理（预热重来）；
 CTP 实时链路在 vnpy 网关侧接入，本包不包含交易柜台连接。
