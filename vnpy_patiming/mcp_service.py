@@ -180,6 +180,14 @@ def build_service(engine: PatimingEngine):
             "strategy:hourly-selection", instruction_id
         )
 
+    @mcp.tool()
+    def timing_health(token: str, session_id: str) -> dict:
+        """Read-only engine runtime health for authorized callers."""
+        source = _caller_source(token, session_id)
+        if source is None:
+            return {"ok": False, "error": "unauthorized"}
+        return engine.health_snapshot()
+
     return mcp
 
 

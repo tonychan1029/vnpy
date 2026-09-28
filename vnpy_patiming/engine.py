@@ -115,6 +115,52 @@ class PatimingEngine:
         )
         return {"ok": True, "instructions": rows}
 
+    def health_snapshot(self) -> dict:
+        """Read-only runtime state for operations; never exposes tokens."""
+        with self.lock:
+            tasks = []
+            for (symbol, exec_tf), task in sorted(self.tasks.items()):
+                clock = self.clocks.get(symbol)
+                alert_counts: dict[str, int] = {}
+                for alert in task.alerts.values():
+                    alert_counts[alert.lifecycle] = (
+                        alert_counts.get(alert.lifecycle, 0) + 1
+                    )
+                last_bar = task.bars[-1] if task.bars else None
+                tasks.append({
+                    "symbol": symbol,
+                    "exec_timeframe": exec_tf,
+                    "data_mode": task.data_mode,
+                    "ready": task.ready,
+                    "warm_exec": task.warm_exec,
+                    "exec_count": task.exec_count,
+                    "instruction_count": len(task.contributions),
+                    "last_price": self.last_prices.get(symbol),
+                    "clock_last_seen": (
+                        clock.last_seen.isoformat(timespec="seconds")
+                        if clock and clock.last_seen else None
+                    ),
+                    "last_exec_bar": (
+                        last_bar.datetime.isoformat(timespec="seconds")
+                        if last_bar else None
+                    ),
+                    "alerts": alert_counts,
+                })
+            status_rows = self.db.query(
+                "SELECT status, count(*) AS n FROM timing_instruction "
+                "GROUP BY status ORDER BY status"
+            )
+            return {
+                "ok": True,
+                "generated_at": now_str(self.clock),
+                "run_mode": self.run_mode,
+                "data_mode": self.data_mode,
+                "status_counts": {
+                    row["status"]: row["n"] for row in status_rows
+                },
+                "tasks": tasks,
+            }
+
     def _submit(self, caller_source: str, payload: dict) -> dict:
         now = self.clock()
         ts = now_str(self.clock)

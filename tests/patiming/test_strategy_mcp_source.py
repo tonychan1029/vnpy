@@ -74,3 +74,30 @@ def test_llm_token_cannot_write_strategy_source(tmp_path, monkeypatch):
         ) is None
 
     asyncio.run(runner())
+
+
+def test_timing_health_requires_authorized_token(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATIMING_MCP_TOKEN", "main-token")
+    monkeypatch.setenv("PATIMING_STRATEGY_MCP_TOKEN", "strategy-token")
+    clock = ManualClock()
+    engine = make_engine(tmp_path, clock)
+    mcp = build_service(engine)
+
+    async def runner():
+        async with Client(mcp) as client:
+            denied = await client.call_tool(
+                "timing_health",
+                {"token": "wrong", "session_id": "ops"},
+            )
+            assert denied.data["ok"] is False
+            assert denied.data["error"] == "unauthorized"
+
+            allowed = await client.call_tool(
+                "timing_health",
+                {"token": "strategy-token", "session_id": "hourly-selection"},
+            )
+            assert allowed.data["ok"] is True
+            assert allowed.data["tasks"] == []
+            assert allowed.data["status_counts"] == {}
+
+    asyncio.run(runner())
