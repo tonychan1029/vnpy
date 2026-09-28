@@ -46,3 +46,5 @@ lab/
 logs/
 patiming.db*
 vnpy_patiming/output/
+.tmp_pkgs/
+.venv*/
