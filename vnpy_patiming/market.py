@@ -12,6 +12,14 @@ EPOCH = datetime(1970, 1, 1)
 
 UPPER_EXCHANGES = {"CZCE", "CFFEX", "GFEX"}
 
+DAY_SESSIONS = ((9 * 60, 10 * 60 + 15),
+                (10 * 60 + 30, 11 * 60 + 30),
+                (13 * 60 + 30, 15 * 60))
+CFFEX_SESSIONS = ((9 * 60 + 30, 11 * 60 + 30),
+                  (13 * 60, 15 * 60))
+NIGHT_TO_0100 = {"CU", "AL", "ZN", "PB", "NI", "SN", "SS", "AO"}
+NIGHT_TO_0230 = {"AU", "AG", "SC", "LU", "NR", "BC"}
+
 
 def canonical_symbol(base: str, exchange: str) -> str:
     """vnpy 惯例：SHFE/DCE/INE 小写基础代码，CZCE/CFFEX/GFEX 大写。"""
@@ -26,6 +34,79 @@ def window_index(dt: datetime, interval_minutes: int) -> int:
 
 def window_open(idx: int, interval_minutes: int) -> datetime:
     return EPOCH + timedelta(minutes=idx * interval_minutes)
+
+
+def _exchange(value: str) -> str:
+    return str(value or "").strip().upper()
+
+
+def _product(symbol: str) -> str:
+    return "".join(ch for ch in str(symbol or "").upper() if ch.isalpha())
+
+
+def _minute_abs(day: datetime.date, minute_of_day: int) -> int:
+    base = datetime.combine(day, datetime.min.time())
+    return int((base - EPOCH).total_seconds() // 60) + minute_of_day
+
+
+def _session_windows(day: datetime.date, exchange: str,
+                     product: str) -> list[tuple[int, int]]:
+    if exchange == "CFFEX":
+        windows = list(CFFEX_SESSIONS)
+    else:
+        windows = list(DAY_SESSIONS)
+        if product in NIGHT_TO_0230:
+            windows.append((21 * 60, 26 * 60 + 30))
+        elif product in NIGHT_TO_0100:
+            windows.append((21 * 60, 25 * 60))
+        elif exchange != "CFFEX":
+            windows.append((21 * 60, 23 * 60))
+    return [(_minute_abs(day, start), _minute_abs(day, end))
+            for start, end in windows]
+
+
+def trading_minutes_between(start: datetime, end: datetime, exchange: str,
+                            symbol: str = "") -> float:
+    """Elapsed tradable minutes, excluding known intraday/night breaks.
+
+    The built-in table covers regular Chinese futures sessions. Holidays are
+    intentionally left to the data-health gate: a closed holiday has no quote,
+    so it surfaces as a data-source problem rather than being silently assumed.
+    """
+    if end <= start:
+        return 0.0
+    start_s = int((start - EPOCH).total_seconds())
+    end_s = int((end - EPOCH).total_seconds())
+    exchange_name = _exchange(exchange)
+    product = _product(symbol)
+    elapsed = 0.0
+    day = start.date() - timedelta(days=1)
+    last_day = end.date()
+    while day <= last_day:
+        if day.weekday() < 5:
+            for window_start, window_end in _session_windows(
+                    day, exchange_name, product):
+                overlap_start = max(start_s, window_start * 60)
+                overlap_end = min(end_s, window_end * 60)
+                if overlap_end > overlap_start:
+                    elapsed += (overlap_end - overlap_start) / 60
+        day += timedelta(days=1)
+    return elapsed
+
+
+def is_trading_time(value: datetime, exchange: str, symbol: str = "") -> bool:
+    return trading_minutes_between(
+        value, value + timedelta(seconds=1), exchange, symbol
+    ) > 0
+
+
+def is_session_start(value: datetime, exchange: str, symbol: str = "") -> bool:
+    value_s = int((value - EPOCH).total_seconds())
+    exchange_name = _exchange(exchange)
+    day = value.date()
+    product = _product(symbol)
+    return any(start * 60 == value_s
+               for start, _end in _session_windows(day, exchange_name, product))
 
 
 class BarSynthesizer:

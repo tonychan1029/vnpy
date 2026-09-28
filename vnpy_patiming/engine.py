@@ -20,6 +20,7 @@ from .config import (
 )
 from .db import Database, now_str
 from .market import MarketClock, window_open
+from .market import trading_minutes_between
 from .runtime import Alert, MonitoringTask
 
 SYMBOL_RE = re.compile(r"^[A-Za-z0-9_]{1,20}\.[A-Za-z0-9_]{1,10}$")
@@ -660,10 +661,13 @@ class PatimingEngine:
             clock = self.clocks.get(symbol)
             if clock is None or clock.last_seen is None:
                 continue
-            max_gap = timedelta(
-                minutes=TIMEFRAME_MINUTES[exec_tf] * self.cfg["freshness_interval_factor"]
+            symbol_base, exchange = symbol.rsplit(".", 1)
+            traded_minutes = trading_minutes_between(
+                clock.last_seen, now, exchange, symbol_base
             )
-            stale = (now - clock.last_seen) > max_gap
+            stale = traded_minutes > (
+                TIMEFRAME_MINUTES[exec_tf] * self.cfg["freshness_interval_factor"]
+            )
             for row in self.db.query(
                 "SELECT * FROM timing_instruction WHERE symbol=? AND exec_timeframe=? "
                 "AND status IN ('ACTIVE','PAUSED')",
