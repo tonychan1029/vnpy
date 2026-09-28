@@ -64,12 +64,28 @@ def check_token() -> tuple[bool, str]:
         "PATIMING_MCP_TOKEN/PATIMING_MCP_TOKEN_FILE not configured"
 
 
+def check_live_poller() -> tuple[bool, str]:
+    enabled = os.environ.get("PATIMING_ENABLE_POLLER", "").lower() in {
+        "1", "true", "yes"
+    }
+    data_mode = os.environ.get(
+        "PATIMING_DATA_MODE", "akshare_poll" if enabled else "ctp_tick"
+    )
+    if enabled and data_mode == "akshare_poll":
+        return True, f"LIVE poller enabled ({data_mode})"
+    return False, (
+        "LIVE poller disabled; set PATIMING_ENABLE_POLLER=1 and "
+        "PATIMING_DATA_MODE=akshare_poll"
+    )
+
+
 def main() -> int:
     failures = 0
     for name, (ok, message) in (
         ("DB", check_db()),
         ("行情", check_market_data()),
         ("Redis", check_redis()),
+        ("LIVE poller", check_live_poller()),
     ):
         mark = "PASS" if ok else "FAIL"
         if not ok and name == "Redis":

@@ -1,4 +1,8 @@
-from conftest import feed_bars, flush_window, make_bar, make_engine, submit_ok
+from datetime import datetime
+
+from conftest import ManualClock, feed_bars, flush_window, make_bar, \
+    make_engine, submit_ok
+from vnpy_patiming.mcp_service import _warmup_live_tasks
 
 
 def test_selection_key_levels_mapping(tmp_path, clock):
@@ -75,3 +79,26 @@ def test_expires_bar_refreshes_with_countdown(tmp_path, clock):
     assert row["remaining_bars"] == 10
     # 纯倒计时下的不变量：估算值 = 锚点 open + valid_bars（随基值同步移动）
     assert row["expires_bar"] == first
+
+
+def test_live_startup_warmup_excludes_incomplete_snapshot(tmp_path):
+    class Feed:
+        def fetch_1m(self, symbol: str, exchange: str):
+            assert (symbol, exchange) == ("rb0", "SHFE")
+            return [
+                make_bar(dt, 99.0, 99.6, 98.6, 99.2, symbol=symbol)
+                for dt in (
+                    datetime(2026, 9, 28, 9, 0),
+                    datetime(2026, 9, 28, 9, 1),
+                    datetime(2026, 9, 28, 9, 2),
+                )
+            ]
+
+    clock = ManualClock(datetime(2026, 9, 28, 9, 2))
+    eng = make_engine(tmp_path, clock, data_mode="akshare_poll",
+                      warmup_min_exec=2, atr_period=1, ema_period=1)
+    submit_ok(eng, iid="WARMUP-1", symbol="rb0.SHFE")
+    counts = _warmup_live_tasks(eng, Feed())
+
+    assert counts == {"rb0.SHFE": 2}
+    assert eng.tasks[("rb0.SHFE", "1m")].ready is True

@@ -11,6 +11,7 @@ import argparse
 from pathlib import Path
 
 from .engine import PatimingEngine
+from .adapters import warmup_engine
 
 
 def _configured_token() -> str:
@@ -27,6 +28,36 @@ def _configured_strategy_token() -> str:
     if not token and token_file:
         token = Path(token_file).read_text(encoding="utf-8").strip()
     return token
+
+
+def _warmup_live_tasks(engine, feed=None) -> dict[str, int]:
+    """Warm tasks from same-day 1m history after an in-process restart."""
+    engine.reconcile()
+    if engine.data_mode != "akshare_poll" or not engine.tasks:
+        return {}
+
+    if feed is None:
+        from .adapters import AkshareOneMinuteFeed
+
+        feed = AkshareOneMinuteFeed()
+
+    current_minute = engine.clock().replace(second=0, microsecond=0)
+    trading_date = engine.clock().date()
+    result: dict[str, int] = {}
+    for vt_symbol in sorted({key[0] for key in engine.tasks}):
+        try:
+            symbol, exchange = vt_symbol.rsplit(".", 1)
+            bars = feed.fetch_1m(symbol, exchange)
+            bars = [bar for bar in bars
+                    if bar.datetime.date() == trading_date
+                    and bar.datetime < current_minute]
+            result[vt_symbol] = warmup_engine(engine, bars[-200:])
+            print(f"patiming warmup: {vt_symbol} bars={result[vt_symbol]}",
+                  flush=True)
+        except Exception as exc:  # noqa: BLE001 - one symbol must not stop others
+            result[vt_symbol] = 0
+            print(f"patiming warmup failed: {vt_symbol}: {exc}", flush=True)
+    return result
 
 
 def build_service(engine: PatimingEngine):
@@ -190,6 +221,7 @@ def main() -> None:  # pragma: no cover - manual entry point
             )
 
         engine.start()
+        _warmup_live_tasks(engine)
         if poller is not None:
             poller.start()
         service = build_service(engine)
