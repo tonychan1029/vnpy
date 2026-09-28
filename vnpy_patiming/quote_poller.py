@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+import logging
 from datetime import datetime
 
 import httpx
@@ -20,6 +21,7 @@ from vnpy.trader.object import BarData
 URL = "https://hq.sinajs.cn/list={lists}"
 HEADERS = {"Referer": "https://finance.sina.com.cn"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+logger = logging.getLogger(__name__)
 
 
 def fetch_batch_quotes(sina_symbols: list[str]) -> dict[str, dict]:
@@ -65,13 +67,16 @@ class QuotePoller:
         self._running = False
 
     def poll_once(self) -> int:
-        symbols = [(vt.split(".")[0].upper(), vt.split(".")[1], vt)
-                   for vt in self.engine.tasks]
+        symbols_by_vt = {}
+        for (symbol, _tf) in self.engine.tasks:
+            base, exchange = symbol.rsplit(".", 1)
+            symbols_by_vt[symbol] = (base.upper(), exchange, symbol, base)
+        symbols = list(symbols_by_vt.values())
         if not symbols:
             return 0
-        quotes = fetch_batch_quotes([s for s, _e, _v in symbols])
+        quotes = fetch_batch_quotes([s for s, _e, _v, _c in symbols])
         emitted = 0
-        for base, exch, vt in symbols:
+        for base, exch, vt, canonical_base in symbols:
             q = quotes.get(base)
             if not q or not q["date"]:
                 continue
@@ -80,7 +85,8 @@ class QuotePoller:
             acc = self._acc.get(vt)
             if acc and acc["minute"] != minute:
                 self.engine.on_1m_bar(BarData(
-                    symbol=base, exchange=Exchange(exch), datetime=acc["minute"],
+                    symbol=canonical_base, exchange=Exchange(exch),
+                    datetime=acc["minute"],
                     gateway_name="SINA_SNAPSHOT",
                     open_price=acc["o"], high_price=acc["h"], low_price=acc["l"],
                     close_price=acc["c"], volume=acc["v"]))
@@ -110,7 +116,7 @@ class QuotePoller:
                 try:
                     self.poll_once()
                 except Exception:
-                    pass
+                    logger.exception("quote poll failed")
                 time.sleep(self.interval_s)
 
         threading.Thread(target=loop, daemon=True).start()

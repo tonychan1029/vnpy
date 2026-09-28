@@ -130,7 +130,10 @@ class BarSynthesizer:
         idx = window_index(bar.datetime, self.interval)
         completed = None
         if self._idx is not None and idx != self._idx:
-            completed = self._build()
+            if self._is_complete():
+                completed = self._build()
+            else:
+                self._idx, self._count = None, 0
         if self._idx is None or completed is not None:
             self._idx = idx
             self._symbol, self._exchange = bar.symbol, bar.exchange
@@ -150,8 +153,17 @@ class BarSynthesizer:
             return None
         end = window_open(self._idx, self.interval) + timedelta(minutes=self.interval)
         if now >= end:
-            return self._build()
+            if self._is_complete():
+                return self._build()
+            self._idx, self._count = None, 0
         return None
+
+    def _is_complete(self) -> bool:
+        start = window_open(self._idx or 0, self.interval)
+        end = start + timedelta(minutes=self.interval)
+        exchange = getattr(self._exchange, "value", self._exchange)
+        expected = trading_minutes_between(start, end, exchange, self._symbol)
+        return self._count + 1e-9 >= expected
 
     def _build(self) -> BarData:
         bar = BarData(

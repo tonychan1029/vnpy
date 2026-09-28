@@ -1,6 +1,19 @@
 from datetime import datetime
 
-from vnpy_patiming.market import is_trading_time, trading_minutes_between
+from vnpy.trader.constant import Exchange
+from vnpy.trader.object import BarData
+
+from vnpy_patiming.market import BarSynthesizer, is_trading_time, \
+    trading_minutes_between, window_index
+
+
+def _bar(hour: int, minute: int) -> BarData:
+    return BarData(
+        symbol="ss0", exchange=Exchange.SHFE,
+        datetime=datetime(2026, 9, 28, hour, minute),
+        gateway_name="TEST", open_price=1, high_price=1,
+        low_price=1, close_price=1, volume=1,
+    )
 
 
 def test_commodity_lunch_break_is_not_staleness() -> None:
@@ -35,3 +48,11 @@ def test_trading_time_boundaries() -> None:
     assert not is_trading_time(datetime(2026, 9, 28, 10, 15), "SHFE", "NI0")
     assert is_trading_time(datetime(2026, 9, 28, 13, 30), "CZCE", "FG0")
     assert not is_trading_time(datetime(2026, 9, 28, 13, 0), "CZCE", "FG0")
+
+
+def test_sixty_minute_window_requires_expected_trading_minutes() -> None:
+    synth = BarSynthesizer("60m")
+    assert synth.update(_bar(13, 0)) is None
+    # A restart at 13:00 saw only part of the 13:00-14:00 execution window.
+    assert synth.update(_bar(14, 0)) is None
+    assert synth._idx == window_index(datetime(2026, 9, 28, 14, 0), 60)

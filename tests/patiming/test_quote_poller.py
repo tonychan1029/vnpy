@@ -23,7 +23,7 @@ def test_sina_latest_price_uses_field_eight(monkeypatch) -> None:
 def test_quote_poller_builds_ohlc_from_latest_prices(monkeypatch) -> None:
     class Engine:
         def __init__(self) -> None:
-            self.tasks = {"RB0.SHFE": None}
+            self.tasks = {("RB0.SHFE", "1m"): None}
             self.bars = []
 
         def on_1m_bar(self, bar) -> None:
@@ -69,3 +69,37 @@ def test_quote_poller_builds_ohlc_from_latest_prices(monkeypatch) -> None:
     assert bar.low_price == 3099.0
     assert bar.close_price == 3101.0
     assert bar.volume == 0.0
+
+
+def test_quote_poller_preserves_canonical_lowercase_shfe_symbol(monkeypatch) -> None:
+    class Engine:
+        def __init__(self) -> None:
+            self.tasks = {("ni0.SHFE", "60m"): None}
+            self.bars = []
+
+        def on_1m_bar(self, bar) -> None:
+            self.bars.append(bar)
+
+        def flush_due(self, now) -> None:
+            return
+
+    def fake_fetch(symbols):
+        assert symbols == ["NI0"]
+        return {
+            "NI0": {
+                "time": "130100", "open": 124000.0, "high": 124000.0,
+                "low": 124000.0, "close": 124000.0, "volume": 1000.0,
+                "date": "2026-09-28",
+            }
+        }
+
+    engine = Engine()
+    poller = QuotePoller(engine)
+    poller._acc["ni0.SHFE"] = {
+        "minute": datetime(2026, 9, 28, 13, 31),
+        "o": 124000.0, "h": 124000.0, "l": 124000.0,
+        "c": 124000.0, "v": 0.0, "v0": 1000.0,
+    }
+    monkeypatch.setattr("vnpy_patiming.quote_poller.fetch_batch_quotes", fake_fetch)
+    assert poller.poll_once() == 1
+    assert engine.bars[0].symbol == "ni0"
