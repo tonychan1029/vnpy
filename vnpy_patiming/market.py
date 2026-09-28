@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from vnpy.trader.object import BarData
 
 from .config import TIMEFRAME_MINUTES
+from .trading_calendar import is_trade_date
 
 EPOCH = datetime(1970, 1, 1)
 
@@ -69,9 +70,8 @@ def trading_minutes_between(start: datetime, end: datetime, exchange: str,
                             symbol: str = "") -> float:
     """Elapsed tradable minutes, excluding known intraday/night breaks.
 
-    The built-in table covers regular Chinese futures sessions. Holidays are
-    intentionally left to the data-health gate: a closed holiday has no quote,
-    so it surfaces as a data-source problem rather than being silently assumed.
+    The built-in table covers regular Chinese futures sessions; the trading
+    calendar automatically refreshes from AKShare and excludes holidays.
     """
     if end <= start:
         return 0.0
@@ -83,7 +83,7 @@ def trading_minutes_between(start: datetime, end: datetime, exchange: str,
     day = start.date() - timedelta(days=1)
     last_day = end.date()
     while day <= last_day:
-        if day.weekday() < 5:
+        if is_trade_date(day):
             for window_start, window_end in _session_windows(
                     day, exchange_name, product):
                 overlap_start = max(start_s, window_start * 60)

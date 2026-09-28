@@ -79,6 +79,15 @@ def check_live_poller() -> tuple[bool, str]:
     )
 
 
+def check_trade_calendar() -> tuple[bool, str]:
+    from .trading_calendar import refresh_trade_calendar
+
+    dates = refresh_trade_calendar()
+    if not dates:
+        return False, "交易日历刷新失败"
+    return True, f"交易日历 OK: {len(dates)} 个交易日"
+
+
 def main() -> int:
     failures = 0
     for name, (ok, message) in (
@@ -86,6 +95,7 @@ def main() -> int:
         ("行情", check_market_data()),
         ("Redis", check_redis()),
         ("LIVE poller", check_live_poller()),
+        ("交易日历", check_trade_calendar()),
     ):
         mark = "PASS" if ok else "FAIL"
         if not ok and name == "Redis":
