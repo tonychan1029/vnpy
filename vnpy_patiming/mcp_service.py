@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 
 from .engine import PatimingEngine
-from .adapters import warmup_engine
+from .config import TIMEFRAME_MINUTES
 
 
 def _configured_token() -> str:
@@ -31,7 +31,7 @@ def _configured_strategy_token() -> str:
 
 
 def _warmup_live_tasks(engine, feed=None) -> dict[str, int]:
-    """Warm tasks from same-day 1m history after an in-process restart."""
+    """Warm each task with its most recent closed execution-timeframe bars."""
     engine.reconcile()
     if engine.data_mode != "akshare_poll" or not engine.tasks:
         return {}
@@ -41,22 +41,30 @@ def _warmup_live_tasks(engine, feed=None) -> dict[str, int]:
 
         feed = AkshareOneMinuteFeed()
 
-    current_minute = engine.clock().replace(second=0, microsecond=0)
-    trading_date = engine.clock().date()
     result: dict[str, int] = {}
-    for vt_symbol in sorted({key[0] for key in engine.tasks}):
+    for (vt_symbol, exec_tf), task in sorted(engine.tasks.items()):
         try:
             symbol, exchange = vt_symbol.rsplit(".", 1)
-            bars = feed.fetch_1m(symbol, exchange)
-            bars = [bar for bar in bars
-                    if bar.datetime.date() == trading_date
-                    and bar.datetime < current_minute]
-            result[vt_symbol] = warmup_engine(engine, bars[-200:])
-            print(f"patiming warmup: {vt_symbol} bars={result[vt_symbol]}",
+            bars = feed.fetch_minutes(
+                symbol, exchange, str(TIMEFRAME_MINUTES[exec_tf])
+            )
+            current_minute = engine.clock().replace(second=0, microsecond=0)
+            bars = [bar for bar in bars if bar.datetime < current_minute]
+            count = engine.cfg["warmup_min_exec"]
+            # The newest row corresponds to the same snapshot minute that
+            # QuotePoller may still emit after restart; leave it to live feed.
+            warm_bars = bars[-(count + 1):-1]
+            with engine.lock:
+                for bar in warm_bars:
+                    task.on_exec_bar(bar)
+            result[(vt_symbol, exec_tf)] = len(warm_bars)
+            print(f"patiming warmup: {vt_symbol}/{exec_tf} "
+                  f"bars={len(warm_bars)} ready={task.ready}",
                   flush=True)
         except Exception as exc:  # noqa: BLE001 - one symbol must not stop others
-            result[vt_symbol] = 0
-            print(f"patiming warmup failed: {vt_symbol}: {exc}", flush=True)
+            result[(vt_symbol, exec_tf)] = 0
+            print(f"patiming warmup failed: {vt_symbol}/{exec_tf}: {exc}",
+                  flush=True)
     return result
 
 

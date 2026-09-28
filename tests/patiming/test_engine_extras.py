@@ -83,22 +83,23 @@ def test_expires_bar_refreshes_with_countdown(tmp_path, clock):
 
 def test_live_startup_warmup_excludes_incomplete_snapshot(tmp_path):
     class Feed:
-        def fetch_1m(self, symbol: str, exchange: str):
-            assert (symbol, exchange) == ("rb0", "SHFE")
+        def fetch_minutes(self, symbol: str, exchange: str, period: str):
+            assert (symbol, exchange, period) == ("rb0", "SHFE", "1")
             return [
                 make_bar(dt, 99.0, 99.6, 98.6, 99.2, symbol=symbol)
                 for dt in (
                     datetime(2026, 9, 28, 9, 0),
                     datetime(2026, 9, 28, 9, 1),
                     datetime(2026, 9, 28, 9, 2),
+                    datetime(2026, 9, 28, 9, 3),
                 )
             ]
 
-    clock = ManualClock(datetime(2026, 9, 28, 9, 2))
+    clock = ManualClock(datetime(2026, 9, 28, 9, 4))
     eng = make_engine(tmp_path, clock, data_mode="akshare_poll",
                       warmup_min_exec=2, atr_period=1, ema_period=1)
     submit_ok(eng, iid="WARMUP-1", symbol="rb0.SHFE")
     counts = _warmup_live_tasks(eng, Feed())
 
-    assert counts == {"rb0.SHFE": 2}
+    assert counts == {("rb0.SHFE", "1m"): 2}
     assert eng.tasks[("rb0.SHFE", "1m")].ready is True
