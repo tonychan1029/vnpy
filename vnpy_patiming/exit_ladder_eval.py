@@ -43,6 +43,61 @@ def confirmed_pivots(h: list, l: list, k: int = 2) -> list[tuple]:
     return out
 
 
+def _detect_and_splice(df: pd.DataFrame) -> pd.DataFrame:
+    """检测换月跳空并后复权拼接（评估管道专用）。"""
+    import numpy as np
+
+    df = df.copy().reset_index(drop=True)
+    n = len(df)
+    if n < 2:
+        return df
+    tr = np.zeros(n)
+    tr[0] = df["high"].iloc[0] - df["low"].iloc[0]
+    for i in range(1, n):
+        tr[i] = max(
+            df["high"].iloc[i] - df["low"].iloc[i],
+            abs(df["high"].iloc[i] - df["close"].iloc[i - 1]),
+            abs(df["low"].iloc[i] - df["close"].iloc[i - 1]),
+        )
+    atr = pd.Series(tr).rolling(14, min_periods=1).mean()
+    has_oi = "position" in df.columns and df["position"].notna().any()
+    rollover_indices = []
+    for i in range(1, n):
+        score = 0
+        prev_close = df["close"].iloc[i - 1]
+        cur_open = df["open"].iloc[i]
+        if prev_close > 0:
+            gap = abs(cur_open - prev_close) / prev_close
+            if gap > 0.008:
+                score += 1
+        if has_oi:
+            oi_cur = df["position"].iloc[i]
+            oi_prev = df["position"].iloc[i - 1]
+            if oi_prev > 0 and oi_cur < oi_prev * 0.85:
+                score += 1
+        rng = df["high"].iloc[i] - df["low"].iloc[i]
+        atr_v = atr.iloc[i]
+        if atr_v > 0 and rng > atr_v * 2.5:
+            score += 1
+        if score >= 2:
+            rollover_indices.append(i)
+
+    ratio = 1.0
+    for idx in rollover_indices:
+        if idx == 0:
+            continue
+        prev_close = df.loc[idx - 1, "close"]
+        cur_open = df.loc[idx, "open"]
+        if cur_open > 0 and prev_close > 0:
+            local = prev_close / cur_open
+            ratio *= local
+            df.loc[idx:, "open"] *= local
+            df.loc[idx:, "high"] *= local
+            df.loc[idx:, "low"] *= local
+            df.loc[idx:, "close"] *= local
+    return df
+
+
 def evaluate_symbol(symbol: str, exchange: str,
                     feed: AkshareOneMinuteFeed) -> dict:
     prod = symbol.rstrip("0123456789")
@@ -52,6 +107,7 @@ def evaluate_symbol(symbol: str, exchange: str,
     df = pd.read_csv(hits[0])
     df["datetime"] = pd.to_datetime(df["datetime"])
     df = df[(df["datetime"].dt.year >= 2015) & (df["datetime"].dt.year <= 2025)]
+    df = _detect_and_splice(df)
     bars = [BarData(symbol=symbol, exchange=Exchange(exchange), datetime=r.datetime,
                     gateway_name="TRADEPLAY", open_price=float(r.open),
                     high_price=float(r.high), low_price=float(r.low),

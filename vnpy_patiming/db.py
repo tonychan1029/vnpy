@@ -124,6 +124,8 @@ class Database:
     def save_bars(self, rows: list[dict]) -> int:
         new = 0
         for r in rows:
+            if r.get("gateway_name") in ("EVAL", "TRADEPLAY"):
+                raise ValueError("D11: tradereplay/eval 数据禁止写入 market_bars 落库累积表")
             cur = self.conn.execute(
                 "INSERT OR IGNORE INTO market_bars VALUES (?,?,?,?,?,?,?,?,?)",
                 (r["symbol"], r["exchange"], r["interval"], r["dt"],
