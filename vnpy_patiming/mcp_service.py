@@ -21,6 +21,14 @@ def _configured_token() -> str:
     return token
 
 
+def _configured_strategy_token() -> str:
+    token = os.environ.get("PATIMING_STRATEGY_MCP_TOKEN", "")
+    token_file = os.environ.get("PATIMING_STRATEGY_MCP_TOKEN_FILE", "")
+    if not token and token_file:
+        token = Path(token_file).read_text(encoding="utf-8").strip()
+    return token
+
+
 def build_service(engine: PatimingEngine):
     try:
         from fastmcp import FastMCP  # fastmcp v4（含 mcp 2.x 兼容）
@@ -28,11 +36,24 @@ def build_service(engine: PatimingEngine):
         raise RuntimeError("pip install fastmcp to run the MCP service") from exc
 
     token = _configured_token()
+    strategy_token = _configured_strategy_token()
     mcp = FastMCP("PatimingEngine")
 
     def _check(token_arg: str) -> str | None:
         if not token or token_arg != token:
             return "unauthorized"
+        return None
+
+    def _check_strategy(token_arg: str) -> str | None:
+        if not strategy_token or token_arg != strategy_token:
+            return "unauthorized"
+        return None
+
+    def _caller_source(token_arg: str, session_id: str) -> str | None:
+        if token_arg == strategy_token and session_id == "hourly-selection":
+            return "strategy:hourly-selection"
+        if token_arg == token:
+            return f"llm:{session_id}"
         return None
 
     @mcp.tool()
@@ -48,7 +69,10 @@ def build_service(engine: PatimingEngine):
             return {"ok": False, "error": denied}
         if len(session_id) > 64 or not session_id:
             return {"ok": False, "error": "bad_session_id"}
-        return engine.submit_instruction(f"llm:{session_id}", payload)
+        source = _caller_source(token, session_id)
+        if source is None:
+            return {"ok": False, "error": "bad_session_id"}
+        return engine.submit_instruction(source, payload)
 
     @mcp.tool()
     def timing_instruction_revoke(
@@ -61,7 +85,10 @@ def build_service(engine: PatimingEngine):
         denied = _check(token)
         if denied:
             return {"ok": False, "error": denied}
-        return engine.revoke(f"llm:{session_id}", instruction_id, producer_revision)
+        source = _caller_source(token, session_id)
+        if source is None:
+            return {"ok": False, "error": "bad_session_id"}
+        return engine.revoke(source, instruction_id, producer_revision)
 
     @mcp.tool()
     def timing_instruction_query(token: str, session_id: str,
@@ -70,7 +97,49 @@ def build_service(engine: PatimingEngine):
         denied = _check(token)
         if denied:
             return {"ok": False, "error": denied}
-        return engine.query(f"llm:{session_id}", instruction_id)
+        source = _caller_source(token, session_id)
+        if source is None:
+            return {"ok": False, "error": "bad_session_id"}
+        return engine.query(source, instruction_id)
+
+    @mcp.tool()
+    def strategy_selection_upsert(
+        token: str,
+        payload: dict,
+    ) -> dict:
+        """Write/update an approved strategy-agent selection instruction."""
+        denied = _check_strategy(token)
+        if denied:
+            return {"ok": False, "error": denied}
+        source = "strategy:hourly-selection"
+        return engine.submit_instruction(source, payload)
+
+    @mcp.tool()
+    def strategy_selection_revoke(
+        token: str,
+        instruction_id: str,
+        producer_revision: int,
+    ) -> dict:
+        """Revoke an instruction owned by the strategy selection agent."""
+        denied = _check_strategy(token)
+        if denied:
+            return {"ok": False, "error": denied}
+        return engine.revoke(
+            "strategy:hourly-selection", instruction_id, producer_revision
+        )
+
+    @mcp.tool()
+    def strategy_selection_query(
+        token: str,
+        instruction_id: str | None = None,
+    ) -> dict:
+        """Query instructions and alerts owned by the selection agent."""
+        denied = _check_strategy(token)
+        if denied:
+            return {"ok": False, "error": denied}
+        return engine.query(
+            "strategy:hourly-selection", instruction_id
+        )
 
     return mcp
 
