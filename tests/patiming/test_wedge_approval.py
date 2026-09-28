@@ -60,3 +60,22 @@ def test_llm_require_approval_flow(tmp_path, clock):
     assert r2["ok"] and r2["status"] == "PENDING_APPROVAL"
     out = eng.reject_instruction("llm:s1", "P-2")
     assert out["ok"] and out["status"] == "REVOKED"
+
+
+def test_reconcile_rejects_pending_revoke(tmp_path, clock):
+    eng = make_engine(tmp_path, clock, require_approval=True)
+    result = eng.submit_instruction("llm:s1", {
+        "instruction_id": "P-REJECT",
+        "producer_revision": 1,
+        "symbol": "rb2501.SHFE",
+        "selection_timeframe": "1m",
+        "exec_timeframe": "1m",
+        "reason_code": "BREAKOUT_WATCH",
+        "reason_note": "pending revoke",
+    })
+    assert result["ok"] and result["status"] == "PENDING_APPROVAL"
+    revoked = eng.revoke("llm:s1", "P-REJECT", 2)
+    assert revoked["ok"]
+    eng.reconcile()
+    row = eng.db.fetch_instruction("llm:s1", "P-REJECT")
+    assert row["status"] == "REVOKED"

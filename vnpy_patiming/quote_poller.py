@@ -37,11 +37,22 @@ def fetch_batch_quotes(sina_symbols: list[str]) -> dict[str, dict]:
             fields = m.group(2).split(",")
             if len(fields) < 18:
                 continue
+            # Sina futures snapshots expose the latest price in field 8.
+            # Field 5 can be zero for continuous contracts during trading.
+            last_price = float(fields[8] or fields[7] or fields[6] or fields[5])
             out[m.group(1)] = {"time": fields[1], "open": float(fields[2]),
                 "high": float(fields[3]), "low": float(fields[4]),
-                "close": float(fields[5]), "volume": float(fields[14]),
+                "close": last_price, "volume": float(fields[14]),
                 "date": next((f for f in fields if DATE_RE.match(f)), "")}
     return out
+
+
+def _parse_quote_datetime(date_text: str, time_text: str) -> datetime:
+    time_format = "%H:%M:%S" if ":" in time_text else "%H%M%S"
+    return datetime.strptime(
+        f"{date_text} {time_text}",
+        f"%Y-%m-%d {time_format}",
+    )
 
 
 class QuotePoller:
@@ -64,8 +75,7 @@ class QuotePoller:
             q = quotes.get(base)
             if not q or not q["date"]:
                 continue
-            dt = datetime.strptime(f"{q['date']} {q['time'][:6]}",
-                                   "%Y-%m-%d %H:%M:%S")
+            dt = _parse_quote_datetime(q["date"], str(q["time"]))
             minute = dt.replace(second=0, microsecond=0)
             acc = self._acc.get(vt)
             if acc and acc["minute"] != minute:
@@ -77,12 +87,14 @@ class QuotePoller:
                 emitted += 1
                 acc = None
             if acc is None:
-                self._acc[vt] = {"minute": minute, "o": q["open"], "h": q["high"],
-                                 "l": q["low"], "c": q["close"], "v": 0.0,
+                last = float(q["close"])
+                self._acc[vt] = {"minute": minute, "o": last, "h": last,
+                                 "l": last, "c": last, "v": 0.0,
                                  "v0": q["volume"]}
             else:
-                acc["h"] = max(acc["h"], q["high"])
-                acc["l"] = min(acc["l"], q["low"])
+                last = float(q["close"])
+                acc["h"] = max(acc["h"], last)
+                acc["l"] = min(acc["l"], last)
                 acc["c"] = q["close"]
                 acc["v"] = max(0.0, q["volume"] - acc["v0"])
         self.engine.flush_due(dt)

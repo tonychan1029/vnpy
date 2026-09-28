@@ -542,7 +542,9 @@ class PatimingEngine:
                 self._transition_instruction(row, "EXPIRED", now, "VALID_UNTIL_HIT")
 
     def _apply_desired(self, now: datetime) -> None:
-        for row in self.db.fetch_by_status(("ACTIVE", "WARMING_UP", "PAUSED")):
+        for row in self.db.fetch_by_status(
+            ("ACTIVE", "WARMING_UP", "PAUSED", "PENDING_APPROVAL")
+        ):
             if row["desired_status"] == "REVOKED":
                 self._transition_instruction(row, "REVOKED", now, "REVOKED")
 
