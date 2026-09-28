@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import os
 import argparse
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from .engine import PatimingEngine
@@ -30,8 +32,63 @@ def _configured_strategy_token() -> str:
     return token
 
 
-def _warmup_live_tasks(engine, feed=None) -> dict[str, int]:
-    """Warm each task with its most recent closed execution-timeframe bars."""
+def _warmup_live_task(
+    engine: PatimingEngine,
+    vt_symbol: str,
+    exec_tf: str,
+    feed=None,
+) -> int:
+    """Warm one task from its most recent closed execution-timeframe bars."""
+    if engine.data_mode != "akshare_poll":
+        return 0
+
+    if feed is None:
+        from .adapters import AkshareOneMinuteFeed
+
+        feed = AkshareOneMinuteFeed()
+
+    try:
+        symbol, exchange = vt_symbol.rsplit(".", 1)
+        bars = feed.fetch_minutes(
+            symbol, exchange, str(TIMEFRAME_MINUTES[exec_tf])
+        )
+        current_minute = engine.clock().replace(second=0, microsecond=0)
+        bars = [bar for bar in bars if bar.datetime < current_minute]
+        count = engine.cfg["warmup_min_exec"]
+        # The newest row may correspond to the QuotePoller's in-progress
+        # snapshot minute; leave that transition to the live feed.
+        warm_bars = bars[-(count + 1):-1]
+        with engine.lock:
+            task = engine.tasks.get((vt_symbol, exec_tf))
+            if task is None or task.ready or task.ever_received:
+                return 0
+            for bar in warm_bars:
+                task.on_exec_bar(bar)
+        print(
+            f"patiming warmup: {vt_symbol}/{exec_tf} "
+            f"bars={len(warm_bars)} ready={task.ready}",
+            flush=True,
+        )
+        return len(warm_bars)
+    except Exception as exc:  # noqa: BLE001 - one symbol must not stop others
+        print(f"patiming warmup failed: {vt_symbol}/{exec_tf}: {exc}", flush=True)
+        return 0
+
+
+def _start_live_task_warmup(engine: PatimingEngine) -> Callable[[str, str], None]:
+    def warmup(symbol: str, exec_tf: str) -> None:
+        threading.Thread(
+            target=_warmup_live_task,
+            args=(engine, symbol, exec_tf),
+            name=f"patiming-warmup-{symbol}-{exec_tf}",
+            daemon=True,
+        ).start()
+
+    return warmup
+
+
+def _warmup_live_tasks(engine, feed=None) -> dict[tuple[str, str], int]:
+    """Warm tasks that already existed when the service started."""
     engine.reconcile()
     if engine.data_mode != "akshare_poll" or not engine.tasks:
         return {}
@@ -43,28 +100,9 @@ def _warmup_live_tasks(engine, feed=None) -> dict[str, int]:
 
     result: dict[str, int] = {}
     for (vt_symbol, exec_tf), task in sorted(engine.tasks.items()):
-        try:
-            symbol, exchange = vt_symbol.rsplit(".", 1)
-            bars = feed.fetch_minutes(
-                symbol, exchange, str(TIMEFRAME_MINUTES[exec_tf])
-            )
-            current_minute = engine.clock().replace(second=0, microsecond=0)
-            bars = [bar for bar in bars if bar.datetime < current_minute]
-            count = engine.cfg["warmup_min_exec"]
-            # The newest row corresponds to the same snapshot minute that
-            # QuotePoller may still emit after restart; leave it to live feed.
-            warm_bars = bars[-(count + 1):-1]
-            with engine.lock:
-                for bar in warm_bars:
-                    task.on_exec_bar(bar)
-            result[(vt_symbol, exec_tf)] = len(warm_bars)
-            print(f"patiming warmup: {vt_symbol}/{exec_tf} "
-                  f"bars={len(warm_bars)} ready={task.ready}",
-                  flush=True)
-        except Exception as exc:  # noqa: BLE001 - one symbol must not stop others
-            result[(vt_symbol, exec_tf)] = 0
-            print(f"patiming warmup failed: {vt_symbol}/{exec_tf}: {exc}",
-                  flush=True)
+        result[(vt_symbol, exec_tf)] = _warmup_live_task(
+            engine, vt_symbol, exec_tf, feed
+        )
     return result
 
 
@@ -236,6 +274,7 @@ def main() -> None:  # pragma: no cover - manual entry point
                 interval_s=float(os.environ.get("PATIMING_POLL_INTERVAL_S", "5")),
             )
 
+        engine.task_warmup_hook = _start_live_task_warmup(engine)
         engine.start()
         _warmup_live_tasks(engine)
         if poller is not None:

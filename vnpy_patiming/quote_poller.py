@@ -67,6 +67,7 @@ class QuotePoller:
         self._running = False
 
     def poll_once(self) -> int:
+        now = datetime.now()
         symbols_by_vt = {}
         for (symbol, _tf) in self.engine.tasks:
             base, exchange = symbol.rsplit(".", 1)
@@ -103,7 +104,7 @@ class QuotePoller:
                 acc["l"] = min(acc["l"], last)
                 acc["c"] = q["close"]
                 acc["v"] = max(0.0, q["volume"] - acc["v0"])
-        self.engine.flush_due(dt)
+        self.engine.flush_due(now)
         return emitted
 
     def start(self) -> None:

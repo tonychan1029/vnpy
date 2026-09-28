@@ -14,7 +14,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 CHINA_TZ = timezone(timedelta(hours=8))
-_DEFAULT_CACHE = Path(tempfile.gettempdir()) / "patiming_trading_calendar.json"
+_DEFAULT_CACHE = Path.home() / ".cache" / "patiming" / "trading_calendar.json"
 _lock = threading.RLock()
 _refreshing = False
 _cache: set[date] | None = None
@@ -78,11 +78,23 @@ def _write_cache(path: Path, dates: set[date], loaded_at: datetime) -> None:
         "trade_dates": sorted(item.isoformat() for item in dates),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f"{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
     )
-    path.chmod(0o666)
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary_path.chmod(0o644)
+        os.replace(temporary_path, path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def _refresh_cache(ak: Any = None, path: Path | None = None) -> set[date] | None:
@@ -119,7 +131,8 @@ def _refresh_cache(ak: Any = None, path: Path | None = None) -> set[date] | None
         return dates
     except Exception as exc:
         logger.warning("Trading calendar refresh failed: %s", exc)
-        return None
+        with _lock:
+            return set(_cache) if _cache is not None else None
     finally:
         with _lock:
             global _refreshing

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from vnpy.trader.object import BarData, TickData
@@ -74,6 +75,7 @@ class PatimingEngine:
         self._summary_seq = 0
         self.delivery_handlers: list = []
         self.tick_fallback_hooks: list = []  # fn(symbol) -> None：订阅 T口 tick
+        self.task_warmup_hook: Callable[[str, str], None] | None = None
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -609,6 +611,8 @@ class PatimingEngine:
                 task = MonitoringTask(self, row["symbol"], row["exec_timeframe"],
                                       row["selection_timeframe"])
                 self.tasks[key] = task
+                if self.task_warmup_hook is not None:
+                    self.task_warmup_hook(row["symbol"], row["exec_timeframe"])
             sig_key = (row["source"], row["instruction_id"])
             if sig_key not in task.contributions:
                 task.add_contribution(self._contribution(row))

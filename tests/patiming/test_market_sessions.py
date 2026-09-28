@@ -1,10 +1,18 @@
 from datetime import datetime
 
+import pytest
+
 from vnpy.trader.constant import Exchange
 from vnpy.trader.object import BarData
 
+from vnpy_patiming import market
 from vnpy_patiming.market import BarSynthesizer, is_trading_time, \
     trading_minutes_between, window_index
+
+
+@pytest.fixture(autouse=True)
+def weekday_calendar(monkeypatch):
+    monkeypatch.setattr(market, "is_trade_date", lambda value: value.weekday() < 5)
 
 
 def _bar(hour: int, minute: int) -> BarData:

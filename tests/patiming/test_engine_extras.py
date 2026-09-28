@@ -3,6 +3,7 @@ from datetime import datetime
 from conftest import ManualClock, feed_bars, flush_window, make_bar, \
     make_engine, submit_ok
 from vnpy_patiming.mcp_service import _warmup_live_tasks
+from vnpy_patiming.mcp_service import _warmup_live_task
 
 
 def test_selection_key_levels_mapping(tmp_path, clock):
@@ -102,4 +103,29 @@ def test_live_startup_warmup_excludes_incomplete_snapshot(tmp_path):
     counts = _warmup_live_tasks(eng, Feed())
 
     assert counts == {("rb0.SHFE", "1m"): 2}
+    assert eng.tasks[("rb0.SHFE", "1m")].ready is True
+
+
+def test_new_live_task_is_warmed_through_hook(tmp_path):
+    class Feed:
+        def fetch_minutes(self, symbol: str, exchange: str, period: str):
+            assert (symbol, exchange, period) == ("rb0", "SHFE", "1")
+            return [
+                make_bar(datetime(2026, 9, 28, 9, minute), 99.0, 99.6, 98.6, 99.2, symbol=symbol)
+                for minute in range(4)
+            ]
+
+    clock = ManualClock(datetime(2026, 9, 28, 9, 4))
+    eng = make_engine(tmp_path, clock, data_mode="akshare_poll",
+                      warmup_min_exec=2, atr_period=1, ema_period=1)
+    warmed = []
+
+    def hook(symbol: str, exec_tf: str) -> None:
+        warmed.append((symbol, exec_tf))
+        _warmup_live_task(eng, symbol, exec_tf, Feed())
+
+    eng.task_warmup_hook = hook
+    submit_ok(eng, iid="NEW-WARM", symbol="rb0.SHFE")
+
+    assert warmed == [("rb0.SHFE", "1m")]
     assert eng.tasks[("rb0.SHFE", "1m")].ready is True
