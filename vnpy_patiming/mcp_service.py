@@ -28,7 +28,22 @@ def _configured_strategy_token() -> str:
     token = os.environ.get("PATIMING_STRATEGY_MCP_TOKEN", "")
     token_file = os.environ.get("PATIMING_STRATEGY_MCP_TOKEN_FILE", "")
     if not token and token_file:
-        token = Path(token_file).read_text(encoding="utf-8").strip()
+        try:
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            runner_uid = os.geteuid() if hasattr(os, "geteuid") else "n/a"
+            raise RuntimeError(
+                f"cannot read strategy token: path={token_file} "
+                f"runner_uid={runner_uid} error={exc.strerror or exc}; "
+                "keep owner tony:tony, mode 0640, and grant read-only access "
+                "to the engine user with: "
+                f"setfacl -m u:aiprj:r-- {token_file}"
+            ) from exc
+    if not token:
+        raise RuntimeError(
+            "strategy token is empty; configure PATIMING_STRATEGY_MCP_TOKEN "
+            "or a readable PATIMING_STRATEGY_MCP_TOKEN_FILE"
+        )
     return token
 
 
