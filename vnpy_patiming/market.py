@@ -109,6 +109,15 @@ def is_session_start(value: datetime, exchange: str, symbol: str = "") -> bool:
                for start, _end in _session_windows(day, exchange_name, product))
 
 
+def is_session_end(value: datetime, exchange: str, symbol: str = "") -> bool:
+    value_s = int((value - EPOCH).total_seconds())
+    exchange_name = _exchange(exchange)
+    day = value.date()
+    product = _product(symbol)
+    return any(end * 60 == value_s
+               for _start, end in _session_windows(day, exchange_name, product))
+
+
 class BarSynthesizer:
     """Synthesizes an N-minute bar from 1m bars.
 
