@@ -13,7 +13,12 @@ source /opt/aiprj/venv/bin/activate
 pip install --upgrade pip
 pip install vnpy --no-deps
 pip install tzlocal numpy pandas loguru requests polars pyarrow \
-  alphalens-reloaded fastmcp redis httpx akshare "peewee>=3.17.9"
+  alphalens-reloaded fastmcp redis httpx akshare "peewee>=3.17.9" ta-lib
+# Post-install health check: talib is a hard import of vnpy.trader.utility.
+python -c "import talib" || {
+  echo "FATAL: talib import failed; see INSTALL_NOTES 坑7" >&2
+  exit 1
+}
 echo "[2/6] Copy code"
 install -d -o aiprj -g aiprj -m 0755 \
   /opt/aiprj/vnpy_patiming /opt/aiprj/cache
