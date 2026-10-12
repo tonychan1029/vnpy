@@ -255,6 +255,14 @@ class MonitoringTask:
                         existing.instruction_keys = existing_keys | {(source, iid)}
                     else:
                         draft.instruction_keys = {(source, iid)}
+        # HO002：W/M 触发时抑制双顶底同向重复通知（仅 w_m 开启时才存在 w_m
+        # draft，默认关闭 → 现网与基线行为零变化）
+        wm_dirs = {d.direction for d in merged.values() if d.category == "w_m"}
+        if wm_dirs:
+            merged = {
+                k: v for k, v in merged.items()
+                if not (v.category == "double_top_bottom" and v.direction in wm_dirs)
+            }
         for draft in merged.values():
             self._arm_or_merge(draft)
 

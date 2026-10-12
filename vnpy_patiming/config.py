@@ -32,15 +32,17 @@ SIGNAL_CATEGORIES = {
     "h2_l2",
     "double_top_bottom",
     "wedge",
+    "h1_l1",
+    "w_m",
 }
 
 DIRECTIONS = {"long", "short", "both"}
 
 REASON_DEFAULT_SIGNALS: dict[str, list[str]] = {
     "BREAKOUT_WATCH": ["breakout", "fake_breakout", "second_breakout"],
-    "TREND_FOLLOW": ["ema_pullback", "structure_pullback"],
-    "RANGE_FADE": ["range_edge", "fake_breakout"],
-    "REVERSAL_WATCH": [],
+    "TREND_FOLLOW": ["ema_pullback", "structure_pullback", "h1_l1"],
+    "RANGE_FADE": ["range_edge", "fake_breakout", "w_m"],
+    "REVERSAL_WATCH": ["w_m"],
     "DISCRETIONARY": [],
 }
 
@@ -91,6 +93,15 @@ DEFAULT_CONFIG: dict = {
     "request_min_interval_s": 0.0,
     "expiring_soon_bars": 3,
     "default_context_tag": "breakout",
+    # ---- HO002 新增（RS004 判据）；两个 detector 默认关闭，经配置开启 ----
+    "enable_h1_l1": False,
+    "h1_lookback": 20,
+    "h1_ema_tol": 0.5,
+    "enable_w_m": False,
+    "wm_min_sep_bars": 5,
+    "wm_max_sep_bars": 30,
+    "wm_tol_atr": 0.5,
+    "wm_neck_min_atr": 1.0,
 }
 
 

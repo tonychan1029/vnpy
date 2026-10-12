@@ -583,6 +583,188 @@ class WedgeThreePushDetector(BaseDetector):
         return out
 
 
+class PullbackOrdinalDetector(BaseDetector):
+    """回调序数参数化（RS004 §1，HO002 M-PT-004）：n=1 即 H1/L1 首次回调。
+
+    判据（多头 H1 为例，RS004 §1.2）：
+    1. context ∈ {trend_strong, trend_channel} 且 EMA 斜率同向
+    2. 首次回调：L1（最近已确认低点）之前 h1_lookback 根内无其他已确认低点
+    3. 结构保持：L1 未跌破前一低点；浅回调：L1 >= EMA - h1_ema_tol x ATR
+    4. 恢复确认：信号K收盘 > L1 后首个中间高点 H_mid
+    触发 = 信号K高点 + buffer（与 h2_l2 同构）；止损 = L1 - 0.25xATR；
+    失效 = 收盘跌破 L1。
+    ordinal=2 预留 H2/L2 泛化（现网 h2_l2 由 HighTwoLowTwoDetector 承担，
+    本类仅注册 n=1，避免信号重复）。
+    默认关闭：cfg["enable_h1_l1"]=False 时不出信号（HO001 基线零回归）。
+    """
+
+    category = "h1_l1"
+    signal_id = "H1_L1_TREND"
+    family = "h1_l1"
+    rank = 27
+
+    def __init__(self, ordinal: int = 1) -> None:
+        self.ordinal = ordinal
+
+    def detect(self, ctx: SignalContext) -> list[AlertDraft]:
+        out: list[AlertDraft] = []
+        if not ctx.cfg.get("enable_h1_l1", False):
+            return out
+        if ctx.context_tag not in ("trend_strong", "trend_channel"):
+            return out
+        ema, atr = ctx.ema.value, ctx.atr
+        if ema is None or atr <= 0:
+            return out
+        index = {b.datetime: i for i, b in enumerate(ctx.bars)}
+        lookback = ctx.cfg["h1_lookback"]
+        tol = ctx.cfg["h1_ema_tol"] * atr
+        buf = ctx.buffer()
+        lows = [p for p in ctx.pivots.confirmed if p.kind == "L"]
+        highs = [p for p in ctx.pivots.confirmed if p.kind == "H"]
+        slope = ctx.ema_slope()
+
+        if slope > 0 and lows:
+            pull = lows[-1]
+            prev_low = lows[-2] if len(lows) >= 2 else None
+            gap_ok = True
+            if prev_low is not None:
+                g = self._gap(index, prev_low.pivot_bar_time, pull.pivot_bar_time)
+                gap_ok = g is not None and g > lookback
+            structure_ok = prev_low is None or pull.price >= prev_low.price
+            has_h0 = any(p.pivot_bar_time < pull.pivot_bar_time for p in highs)
+            mids = [p for p in highs if p.pivot_bar_time > pull.pivot_bar_time]
+            if (gap_ok and structure_ok and has_h0 and mids
+                    and pull.price >= ema - tol
+                    and ctx.bar.close_price > mids[0].price
+                    and ctx.allowed("long")):
+                out.append(_mk_draft(self, ctx, "long", "cross_above",
+                                     ctx.bar.high_price + buf, "signal_bar_high",
+                                     pull.price - 0.25 * atr, "h1_low_offset",
+                                     ("close_below", pull.price)))
+
+        if slope < 0 and highs:
+            pull = highs[-1]
+            prev_high = highs[-2] if len(highs) >= 2 else None
+            gap_ok = True
+            if prev_high is not None:
+                g = self._gap(index, prev_high.pivot_bar_time, pull.pivot_bar_time)
+                gap_ok = g is not None and g > lookback
+            structure_ok = prev_high is None or pull.price <= prev_high.price
+            has_l0 = any(p.pivot_bar_time < pull.pivot_bar_time for p in lows)
+            mids = [p for p in lows if p.pivot_bar_time > pull.pivot_bar_time]
+            if (gap_ok and structure_ok and has_l0 and mids
+                    and pull.price <= ema + tol
+                    and ctx.bar.close_price < mids[0].price
+                    and ctx.allowed("short")):
+                out.append(_mk_draft(self, ctx, "short", "cross_below",
+                                     ctx.bar.low_price - buf, "signal_bar_low",
+                                     pull.price + 0.25 * atr, "h1_high_offset",
+                                     ("close_above", pull.price)))
+        return out
+
+    @staticmethod
+    def _gap(index: dict, t1, t2):
+        a, b = index.get(t1), index.get(t2)
+        if a is None or b is None:
+            return None
+        return abs(b - a)
+
+
+class WmDetector(BaseDetector):
+    """W 底 / M 顶（RS004 §2，HO002 M-PT-005）：两推 + 颈线 + 衰竭证据。
+
+    与 M-PT-002（双顶底）的区别：额外要求中间反弹（颈线）的完整结构，
+    且 |L2-L1| 容差更宽（wm_tol_atr=0.5 vs dbl 0.3），允许 L2<L1 扫损
+    （wash & rinse）。第二推必须有衰竭证据（L2 摆动K上的针形或吞没）。
+    触发 = 颈线 N ± buffer 突破单（RS004 §2.2 字面口径）；
+    止损 = L2 - 0.25xATR；失效 = 收盘回落至颈线对侧。
+    同信号同向时抑制双顶底重复通知（runtime 层处理，仅 w_m 开启时生效）。
+    默认关闭：cfg["enable_w_m"]=False 时不出信号（HO001 基线零回归）。
+    """
+
+    category = "w_m"
+    signal_id = "W_BOTTOM"
+    family = "w_m"
+    rank = 19
+
+    def detect(self, ctx: SignalContext) -> list[AlertDraft]:
+        out: list[AlertDraft] = []
+        if not ctx.cfg.get("enable_w_m", False):
+            return out
+        if ctx.context_tag not in ("range", "reversal"):
+            return out
+        atr = ctx.atr
+        if atr <= 0:
+            return out
+        lows = [p for p in ctx.pivots.confirmed if p.kind == "L"]
+        highs = [p for p in ctx.pivots.confirmed if p.kind == "H"]
+        index = {b.datetime: i for i, b in enumerate(ctx.bars)}
+        min_sep = ctx.cfg["wm_min_sep_bars"]
+        max_sep = ctx.cfg["wm_max_sep_bars"]
+        tol = ctx.cfg["wm_tol_atr"] * atr
+        neck_min = ctx.cfg["wm_neck_min_atr"] * atr
+        buf = ctx.buffer()
+
+        if len(lows) >= 2:
+            l1, l2 = lows[-2], lows[-1]
+            sep = self._gap(index, l1.pivot_bar_time, l2.pivot_bar_time)
+            necks = [p for p in highs
+                     if l1.pivot_bar_time < p.pivot_bar_time < l2.pivot_bar_time]
+            neck = max(necks, key=lambda p: p.price) if necks else None
+            if (sep is not None and min_sep <= sep <= max_sep
+                    and abs(l2.price - l1.price) <= tol
+                    and neck is not None
+                    and neck.price - max(l1.price, l2.price) >= neck_min
+                    and self._exhaustion(ctx, index, l2, bull=True)
+                    and ctx.bar.close_price > neck.price
+                    and ctx.allowed("long")):
+                d = _mk_draft(self, ctx, "long", "cross_above",
+                              neck.price + buf, "neck_level",
+                              l2.price - 0.25 * atr, "wm_low_offset",
+                              ("close_below", neck.price))
+                d.signal_id = "W_BOTTOM"
+                d.note = "wash" if l2.price < l1.price else ""
+                out.append(d)
+
+        if len(highs) >= 2:
+            h1, h2 = highs[-2], highs[-1]
+            sep = self._gap(index, h1.pivot_bar_time, h2.pivot_bar_time)
+            necks = [p for p in lows
+                     if h1.pivot_bar_time < p.pivot_bar_time < h2.pivot_bar_time]
+            neck = min(necks, key=lambda p: p.price) if necks else None
+            if (sep is not None and min_sep <= sep <= max_sep
+                    and abs(h2.price - h1.price) <= tol
+                    and neck is not None
+                    and min(h1.price, h2.price) - neck.price >= neck_min
+                    and self._exhaustion(ctx, index, h2, bull=False)
+                    and ctx.bar.close_price < neck.price
+                    and ctx.allowed("short")):
+                d = _mk_draft(self, ctx, "short", "cross_below",
+                              neck.price - buf, "neck_level",
+                              h2.price + 0.25 * atr, "wm_high_offset",
+                              ("close_above", neck.price))
+                d.signal_id = "M_TOP"
+                d.note = "wash" if h2.price > h1.price else ""
+                out.append(d)
+        return out
+
+    @staticmethod
+    def _exhaustion(ctx: SignalContext, index: dict, pivot, bull: bool) -> bool:
+        """第二推衰竭证据：摆动K上的针形（M-KB-001）或吞没（M-KB-002）。"""
+        i = index.get(pivot.pivot_bar_time)
+        if i is None or i < 1:
+            return False
+        bar, prev = ctx.bars[i], ctx.bars[i - 1]
+        return RangeEdgeDetector._pin(bar, bull) or RangeEdgeDetector._engulf(bar, prev, bull)
+
+    @staticmethod
+    def _gap(index: dict, t1, t2):
+        a, b = index.get(t1), index.get(t2)
+        if a is None or b is None:
+            return None
+        return abs(b - a)
+
+
 DETECTOR_CLASSES = [
     BreakoutDetector,
     FakeBreakoutDetector,
@@ -593,6 +775,8 @@ DETECTOR_CLASSES = [
     HighTwoLowTwoDetector,
     DoubleTopBottomDetector,
     WedgeThreePushDetector,
+    PullbackOrdinalDetector,
+    WmDetector,
 ]
 
 
