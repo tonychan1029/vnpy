@@ -6,8 +6,8 @@
 ## 环境
 - **106 生产机**: `ssh tony@192.168.50.106`(tony 免密 sudo);本地代理 `192.168.50.106:7890`(GitHub 抖动时 git 加 `-c http.proxy=…`)
 - **三仓(当前 head,工作区干净,全部已推送)**:
-  - `D:\AIprj\quant-repo` main=**37c0acb**(本会话 8 提交:晚盘修复/日线波段/通知周期/框架骨架与 v2.1/部署脚本)
-  - `D:\AIprj\vnpy` master=**407842c**(tracked 无改动;本胶囊迁至该仓根目录,未入库)
+  - `D:\AIprj\quant-repo` main=**718d7db**(Phase A 本地项: legacy 排空查询/universe 生成器/set_bindings staticmethod 修复+壳生命周期自检/evaluate_product 提取;selfcheck 57→74)
+  - `D:\AIprj\vnpy` master=**7e0abf6**(HO001 基线回测脚本+HO002 两 detector 默认关+16 单测;strategy_research 已入库;基线产物 vnpy_patiming/output/baseline/ 未入库)
   - `D:\AIprj\Cloudflarewebhook` main=**e7d1d7a**(胶囊已删除迁移,历史仍含本文件)
 - **106 部署布局**: `/opt/aiprj/selection|services|research/alpha_lab|sync_service|vnpy_patiming|venv`、`/opt/aiprj/cache`、`/home/tony/.hermes/`
 - **⚠️ 本地工具坑(实测)**: pwsh 无 git(PATH)→用 `C:\Program Files\Git\cmd\git.exe`;pwsh→ssh 传参**内层双引号会被吞**(内层一律单引号;复杂脚本 `base64 -d | bash`);捆绑 Python 无 matplotlib、无 git;**loguru 默认 sink 是 DEBUG 级**——降 debug 不减 journald 量,要节流;PowerShell 单行命令里 `$` 会被展开
@@ -34,16 +34,29 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **已落地模块**(services/strategy_framework/,自检 57/57=28 legacy+29 框架): settings(universe 契约)/identity v2(溢出 raise+exchange)/sink(Shadow/Composite failed 列表/CloseAggregator)/close_semantics(会话收线三分支+夜尾+不完整窗丢弃+水位)/selection_strategy(壳:update_setting 快照+parameters、TF_SPEC daily_end、trading 门、逐评估异常隔离、全 sink 失败不推进水位、bg 缺失限频告警、1d 由 60m 链路 15:00 触发)/tf_selector(规则阈值)/contracts(resolve_candidates 适配)/instruction_sink(v2 盖章+信号非空)/shadow_compare(小时桶归一)
 - **流程教训**: 评审任务书不得预设选型边界——附"策略族选型质疑权";选型先列机制清单(ctastrategy/portfoliostrategy/scripttrader/自建)写 ADR;自检盲区=壳层生命周期(桩 vnpy BarGenerator 待补)
 
+## 2026-10-12 深夜工程会话(vnpy 工作区;交接胶囊维护)
+- **HO001 基线交付**(7e0abf6):6 品种 51,696 草稿/122,404 context 行 → `vnpy_patiming/output/baseline/`
+  (signals_detail/summary_by_signal_id/summary_by_year/baseline_report.md/context_tags/{prod}.csv);
+  口径:三档成本 p0/p1/p2、**佣金=保证金×万3 双边(DEC003,用户深夜修订,名义额口径作废)**、
+  T1=2R/同根双触保守 SL、horizon=40、in/out 仅打标签;判定侧 context v0 规则全文在报告
+- **HO002 A1 实现完成,待独立评审**:PullbackOrdinalDetector(H1_L1_TREND)+WmDetector(W_BOTTOM/M_TOP)
+  默认 cfg 关闭,注册零回归(runtime 同向抑制双顶底仅在 w_m 开启时生效);16 单测过;
+  vnpy 工程套件 74 过+2 环境失败(redis/mcp e2e,存量)
+- **Phase A 本地项**(718d7db):#13a/#13b/#2/#5 完成+壳生命周期桩测试补齐;
+  **set_bindings staticmethod 修复**(类属性函数描述符会把 self 注入绑定回调——评审盲区自检抓到的真 bug);
+  selfcheck 57→74;test_late_night_close_fires_at_0230 为存量失败(stash 验证),待查
+- **错误提交处置**:QUANT_HANDOFF.md 从 Cloudflarewebhook 迁至 vnpy 根并入库;e7d1d7a 删除已推
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [ ] #10-12 收尾: tf_selector 接线两模型+pool_config 键(poolscan 周二冻结,部署后接入)
-- [ ] #13 余项: 旧 id 排空查询按 legacy 精确形状、文档统一 replace_scanner_entries 命名
-- [ ] #1 具体策略类(portfolio 基类装包后对齐源码;**壳生命周期离线测试**=桩 vnpy BarGenerator,评审点名盲区)
-- [ ] #2 trend_pullback 提取 evaluate_product(本地改,staging 随下一窗口)
-- [ ] #3 InstructionSink 接线 boot(payload_builder=entry_to_instruction 适配)
-- [ ] #4 影子对比器接线(ShadowComparator 已写,待接)
-- [ ] #5 universe→settings 生成器(contracts+poolscan _discover_universe)
-- [ ] #6 boot 集成(MainEngine+portfolio 引擎无头)
+- [x] #13 余项: 旧 id 排空查询按 legacy 精确形状(identity.is_legacy_instruction_id/select_legacy_ids)、文档统一 replace_scanner_entries 命名
+- [ ] #1 具体策略类(portfolio 基类装包后对齐源码);[x] 壳生命周期离线测试(桩 vnpy BarGenerator)+set_bindings 修复
+- [x] #2 trend_pullback 提取 evaluate_product(poolscan.py,行为保持,staging 随下一窗口)
+- [ ] #3 InstructionSink 接线 boot(模块与校验已有;接线随 #6,依赖 #7)
+- [ ] #4 影子对比器接线(ShadowComparator 已写;接线随 #6,依赖 #7)
+- [x] #5 universe→settings 生成器(strategy_framework/universe.py,解析失败告警+跳过)
+- [ ] #6 boot 集成(MainEngine+portfolio 引擎无头;依赖 #7 装包)
 - [ ] #7 venv 安装 vnpy_portfoliostrategy(窗口内 pip 走代理,版本对齐 4.4.0)
 - [ ] #8 旧 id 指令排空执行(legacy 精确形状过滤)
 - [ ] #9 通知模板(引擎侧,Phase C)
