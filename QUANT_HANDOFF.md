@@ -104,6 +104,23 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - 已交付信号基线未重跑(v0 读数保护 MTG004 结论);正式验收=研究侧重跑
   rs012_confusion.py(经 tag_adapter)与 regime_retest.py
 
+## 2026-10-13 第四轮评审 FAIL → 整改完成 → 第五轮复审中
+- **第四轮独立评审判定 FAIL**(1 BLOCKER+4 MAJOR+7 MINOR+历史 OPEN 1;报告
+  reviews_v2/phase_a_round4_review.md;历史 16 项 15 CLOSED——骨架与安全设计扎实,
+  FAIL 限于本轮影子 boot 编排与组合基座失败路径):4B-1 影子只喂首实例(BLOCKER,
+  CU0+ 框架侧零记录,N=5 证据失效)/4B-2 类级 sink 重绑定错标/4B-3 对比器退化为
+  状态-vs-事件重灌/4B-4 flush 重试键型混淆+水位先行/4B-5 trend_pullback tf 接线
+  死代码;**影子 quant-shadow 已按评审建议暂停**(10-20 差异清单在现缺陷下不作
+  Phase B 门禁)
+- **整改完成**(ead7e91,全量验证绿:selfcheck 80/80、网关三脚本、回归 12 例):
+  4B-1 逐实例喂条/4B-2 sink 实例级/4B-3 对比器事件化+有界(每 close 节点一份
+  报告,4 项未归一化节点差 meta 标注)/4B-4 重试键=close_key+水位 commit-on-flush
+  (+3 个失败路径用例)/4B-5 一行修/MINOR 批(4B-6 门禁 exchange/4B-7 断言更新+
+  回归口径文档化/4B-8 交易所反查/4B-9 首启水位=boot/4B-10 cfg 透传/4B-11 drain
+  REVOKED+PENDING_APPROVAL/4B-12 拒多产品 list)/H14 SKIP 单独计数
+- **106 已同步修复版**(远端 selfcheck 80/80);**第五轮复审已派发**(范围=整改
+  核验+回归),PASS 后重启影子窗口(N=5 重计)
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [ ] #10-12 收尾: tf_selector 接线两模型+pool_config 键(poolscan 周二冻结,部署后接入)
