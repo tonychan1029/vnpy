@@ -74,6 +74,12 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   6/6);影子 legacy 池读取修正(entries_for_scanner,原误猜 load_entries 被静默吞)并带
   修复重启——15:00 节点起对比两侧数据齐全;**坑+1:pkill/pgrep -f 模式含路径会自匹配
   杀掉自己的 ssh 会话,用 [f] 正则技巧或分离命令**
+- **cloudwebhook 缺信修复(10-13 午)**:用户报盘后选品未达 cloudwebhook——根因=106
+  gateway_config `provider: hermes` 单通道,fanout 双路从未启用(CUSTOM_WEBHOOK_SECRET
+  env 106 缺失);已切 `provider: fanout`(hermes 腿密钥走 ~/.hermes route;custom 密钥
+  内联 640 配置,值=Worker README 记录的 1008991001),--test 双腿发送成功,15:05 盘后
+  选品起双通道送达。**密钥卫生待办**:WEBHOOK_SECRET 明文见 Cloudflarewebhook README/
+  HANDOFF,建议轮换并停止入库(需同步 Worker secret+Android local.properties)
 
 ## 2026-10-13 HO003 实施(context v1 修正+by_year 补导出)
 - baseline_backtest.py:新增 ContextTaggerV1(HO003 A1 两层 range/A2 reversal 已实现
