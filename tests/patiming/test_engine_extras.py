@@ -129,3 +129,25 @@ def test_new_live_task_is_warmed_through_hook(tmp_path):
 
     assert warmed == [("rb0.SHFE", "1m")]
     assert eng.tasks[("rb0.SHFE", "1m")].ready is True
+
+
+def test_selection_timeframe_1d_sel_gt_exec_accepted(tmp_path, clock):
+    """Round-7：日线波段 sel=1d > exec=60m 合法（selection_gt_exec 守卫已移除）。"""
+    eng = make_engine(tmp_path, clock)
+    r = eng.submit_instruction("strategy:demo", {
+        "instruction_id": "DAILY-1", "producer_revision": 1,
+        "symbol": "rb2501.SHFE", "selection_timeframe": "1d",
+        "exec_timeframe": "60m", "context_tag": "trend_strong",
+        "reason_code": "TREND_FOLLOW", "reason_note": "daily swing"})
+    assert r["ok"], r
+
+
+def test_selection_timeframe_unknown_rejected(tmp_path, clock):
+    """1d 白名单只放开 "1d"；未知周期仍拒绝。"""
+    eng = make_engine(tmp_path, clock)
+    r = eng.submit_instruction("strategy:demo", {
+        "instruction_id": "DAILY-2", "producer_revision": 1,
+        "symbol": "rb2501.SHFE", "selection_timeframe": "2d",
+        "exec_timeframe": "60m", "context_tag": "trend_strong",
+        "reason_code": "TREND_FOLLOW", "reason_note": "unknown tf"})
+    assert not r["ok"] and r["error"] == "bad_selection_timeframe"

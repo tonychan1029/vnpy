@@ -386,8 +386,10 @@ class PatimingEngine:
             return "context_not_in_whitelist"
         sel_m = TIMEFRAME_MINUTES[cleaned["selection_timeframe"]]
         exec_m = TIMEFRAME_MINUTES[cleaned["exec_timeframe"]]
-        if sel_m > exec_m:
-            return "selection_gt_exec"
+        # 1d 支持(2026-10-13):日线波段的 selection 基周期(1d)天然大于 exec
+        # 监控周期(60m),原 selection_gt_exec 守卫随之移除。倒计时
+        # (_on_selection_bar)按 sel 周期收线 K 锚定,与 exec 无耦合;sel_m/exec_m
+        # 仍用于下式最短有效期校验。
         valid_bars = cleaned["valid_bars"] or self.cfg["default_valid_bars"]
         if valid_bars * sel_m < 2 * exec_m:
             return "validity_shorter_than_two_exec_bars"

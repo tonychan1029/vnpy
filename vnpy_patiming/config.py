@@ -10,6 +10,9 @@ TIMEFRAME_MINUTES: dict[str, int] = {
     "15m": 15,
     "30m": 30,
     "60m": 60,
+    # 1d:日线波段(2026-10-13)。selection 基周期语义,倒计时按 1d 收线 K 锚定;
+    # BarSynthesizer 1440 分钟窗为自然日聚合,valid_bars=12 ≈ 12 个自然日(偏保守)。
+    "1d": 1440,
 }
 
 REASON_CODES = {
