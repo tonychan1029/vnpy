@@ -66,6 +66,14 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   首次评估节点=下一个 60m 收线);production runner/poolscan 重启后 active
 - **影子跑观察**:天数为用户决策项(建议 5-10 交易日);差异报告落
   /opt/aiprj/selection/.cache/shadow_compare/;第四轮评审待排期
+- **遗留清理(10-13 午前)**:test_late_night_close 存量失败=陈旧夹具(夜盘归属改为
+  上一交易日后夹具未更新,补 9/29 归属日)已修,selection_runner 测试 11/11(ba34866);
+  vnpy 两环境失败=纯环境——本地 Redis 6379 起服+PATIMING_STRATEGY_MCP_TOKEN_FILE
+  (拉取 106 token 存 ~/.vntrader/)+PATIMING_MCP_URL 后 **76+2 全过(含真实 106 MCP
+  e2e)**;远端 db.py(+2)/exit_ladder_eval.py(+56)漂移已对齐部署(引擎重启,preflight
+  6/6);影子 legacy 池读取修正(entries_for_scanner,原误猜 load_entries 被静默吞)并带
+  修复重启——15:00 节点起对比两侧数据齐全;**坑+1:pkill/pgrep -f 模式含路径会自匹配
+  杀掉自己的 ssh 会话,用 [f] 正则技巧或分离命令**
 
 ## 2026-10-13 HO003 实施(context v1 修正+by_year 补导出)
 - baseline_backtest.py:新增 ContextTaggerV1(HO003 A1 两层 range/A2 reversal 已实现
