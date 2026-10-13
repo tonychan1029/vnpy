@@ -64,8 +64,10 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   runner——影子对比两侧同版本,无漂移
 - **部署验证**:106 远端 selfcheck 77/77;影子常驻(PID 4089376,/home/tony/shadow_boot.log,
   首次评估节点=下一个 60m 收线);production runner/poolscan 重启后 active
-- **影子跑观察**:天数为用户决策项(建议 5-10 交易日);差异报告落
-  /opt/aiprj/selection/.cache/shadow_compare/;第四轮评审待排期
+- **影子跑观察**:**N=5 交易日(用户定,10-13~10-19;10-20 出差异清单提交用户确认=
+  Phase B 门禁材料)**;进程已迁移 **systemd 常驻 quant-shadow.service**(enabled 自启+
+  Restart=always,扛 5 日跨度的重启/崩溃);差异报告落
+  /opt/aiprj/selection/.cache/shadow_compare/;第四轮评审进行中(子代理)
 - **遗留清理(10-13 午前)**:test_late_night_close 存量失败=陈旧夹具(夜盘归属改为
   上一交易日后夹具未更新,补 9/29 归属日)已修,selection_runner 测试 11/11(ba34866);
   vnpy 两环境失败=纯环境——本地 Redis 6379 起服+PATIMING_STRATEGY_MCP_TOKEN_FILE
