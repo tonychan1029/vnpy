@@ -76,6 +76,11 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   6/6);影子 legacy 池读取修正(entries_for_scanner,原误猜 load_entries 被静默吞)并带
   修复重启——15:00 节点起对比两侧数据齐全;**坑+1:pkill/pgrep -f 模式含路径会自匹配
   杀掉自己的 ssh 会话,用 [f] 正则技巧或分离命令**
+- **PAT 泄露处置闭环(10-13 午)**:API scope 回显定位泄露枚=classic `codex`(正在使用
+  的工作凭据);处置=用户发新 fine-grained token(三仓 Contents+Workflows RW,90 天)
+  → 凭据管理器更新 → 三仓推送认证实测全过;Cloudflarewebhook remote 内嵌凭据段已剥离;
+  旧三枚(codex/codex2/aicoder)用户网页删除;**新惯例:git 推送一律走凭据管理器,
+  remote/env 不再存 token 明文**
 - **cloudwebhook 缺信修复(10-13 午)**:用户报盘后选品未达 cloudwebhook——根因=106
   gateway_config `provider: hermes` 单通道,fanout 双路从未启用(CUSTOM_WEBHOOK_SECRET
   env 106 缺失);已切 `provider: fanout`(hermes 腿密钥走 ~/.hermes route;custom 密钥
