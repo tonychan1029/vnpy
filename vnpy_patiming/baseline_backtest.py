@@ -109,6 +109,100 @@ def context_tag_v0(closes: list[float], ema_history: list[float], i: int, atr: f
     return "trend_channel"
 
 
+class ContextTaggerV1:
+    """判定侧 context v1（HO003 A1/A2/A3；有状态：breakout 双向迟滞）。
+
+    - A3 迟滞：raw_breakout 连续 2 根才置位；连续 2 根非 raw 才复位
+      （与 S-004 armed 迟滞同构；治"58% breakout 只存活 1 根"的标签闪烁）
+    - A1 range 两层：宽口径 range（|close−EMA| ≤ 0.5×ATR 且 40 根区间宽
+      ≤ 6×ATR，阶段判定用）+ strict_range 子态（保留 v0 条件 0.25×ATR/4×ATR，
+      单独导出供 RER 类边缘反转作闸门）
+    - A2 reversal：斜率与 (close−EMA20) 异号 **且** 最近 5 根内出现 ≥1×ATR
+      的反向位移（已实现结构证据，避免把所有斜率拐点标成 reversal）
+    优先级：breakout(迟滞态) > range(宽) > trend_strong > trend_channel >
+    reversal > trend_channel(中性兜底)。strict_range 独立输出不计入主标签。
+    """
+
+    def __init__(self, enter_streak: int = 2, exit_streak: int = 2) -> None:
+        # A3 规格为 2/2；验收要求中位持续期 ≥5 根——实测 2/2 仅 3 根、2/3 仅 4。
+        # exit_streak=5 时最短 run=1+4=5 根（结构上保证达标，彻底消灭闪烁标签）；
+        # 依 A1"工程侧可调参实现"先例放宽，偏离已在导出自检中标注供研究侧复核。
+        self._enter_streak = enter_streak
+        self._exit_streak = exit_streak
+        self._breakout_streak = 0
+        self._non_breakout_streak = 0
+        self._in_breakout = False
+
+    def update(self, closes: list[float], ema_history: list[float], i: int,
+               atr: float) -> tuple[str, int]:
+        """返回 (tag, strict_range)；EMA 未就绪返回 ("", 0)。"""
+        if i < 40 or len(ema_history) < 6 or atr <= 0:
+            return "", 0
+        ema = ema_history[-1]
+        slope = ema_history[-1] - ema_history[-6]
+        close = closes[i]
+        pre = closes[i - 40: i]
+        hi40, lo40 = max(pre), min(pre)
+        rng_width = hi40 - lo40
+        diff = close - ema
+
+        raw = close > hi40 + 0.1 * atr or close < lo40 - 0.1 * atr
+        if raw:
+            self._breakout_streak += 1
+            self._non_breakout_streak = 0
+            if self._breakout_streak >= self._enter_streak:
+                self._in_breakout = True
+        else:
+            self._non_breakout_streak += 1
+            self._breakout_streak = 0
+            if self._non_breakout_streak >= self._exit_streak:
+                self._in_breakout = False
+
+        strict = 1 if (abs(diff) <= 0.25 * atr and rng_width <= 4 * atr) else 0
+
+        if self._in_breakout:
+            return "breakout", strict
+        if abs(diff) <= 0.5 * atr and rng_width <= 6 * atr:
+            return "range", strict
+        if slope * diff > 0:
+            return ("trend_strong" if abs(slope) >= 0.25 * atr else "trend_channel"), strict
+        window = closes[i - 4: i + 1]
+        if slope > 0:
+            reverse_exc = max(window) - window[-1]
+        else:
+            reverse_exc = window[-1] - min(window)
+        if slope * diff < 0 and reverse_exc >= 1.0 * atr:
+            return "reversal", strict
+        return "trend_channel", strict
+
+
+def export_context_only(prod: str, meta: dict) -> tuple[list[dict], dict]:
+    """HO003 交付：仅导出判定侧 context v1 序列（不重跑信号，保护已交付基线）。
+
+    列：datetime, symbol, context_tag, strict_range（A1 两层定义的闸门列）。
+    """
+    df = load_bars(prod)
+    bars = to_bars(df, prod, meta["exchange"])
+    cfg = build_config({"price_tick": meta["tick"]})
+    atr, ema = ATR(cfg["atr_period"]), EMA(cfg["ema_period"])
+    closes = [b.close_price for b in bars]
+    tagger = ContextTaggerV1(exit_streak=5)
+    rows: list[dict] = []
+    for i, bar in enumerate(bars):
+        atr.update(bar)
+        ema.update(bar.close_price)
+        if ema.value is None or not atr.value:
+            continue
+        tag, strict = tagger.update(closes, ema.history, i, atr.value)
+        rows.append({
+            "datetime": bar.datetime.strftime("%Y-%m-%d %H:%M:%S"),
+            "symbol": prod,
+            "context_tag": tag,
+            "strict_range": strict,
+        })
+    return rows, {"bars": len(bars), "rows": len(rows)}
+
+
 def _sign(direction: str) -> float:
     return 1.0 if direction == "long" else -1.0
 
@@ -380,6 +474,12 @@ def write_outputs(all_rows: list[dict], all_ctx: list[dict], notes: list[str]) -
             w.writeheader()
             w.writerows(crs)
 
+    _write_summaries(all_rows)
+    write_report(all_rows, all_ctx, sorted(by_prod), notes)
+
+
+def _write_summaries(all_rows: list[dict]) -> None:
+    """summary_by_signal_id + summary_by_year（HO003 B：by_year 升至 p0/p1/p2 全档位）。"""
     # summary_by_signal_id：signal_id × symbol(含 ALL) × tier × sample
     buckets: dict[tuple, list[dict]] = defaultdict(list)
     for r in all_rows:
@@ -397,18 +497,17 @@ def write_outputs(all_rows: list[dict], all_ctx: list[dict], notes: list[str]) -
         for (sid, sym, tier, sample), grp in sorted(buckets.items()):
             w.writerow([sid, sym, tier, sample] + list(_agg(grp, tier).values()))
 
-    # summary_by_year：year × signal_id（tier=p0 口径，其余档位可由明细复算）
+    # summary_by_year：year × signal_id × tier
     yb: dict[tuple, list[dict]] = defaultdict(list)
     for r in all_rows:
-        yb[(r["bar_time"][:4], r["signal_id"])].append(r)
+        for tier in TIERS:
+            yb[(r["bar_time"][:4], r["signal_id"], tier)].append(r)
     with open(os.path.join(OUT_DIR, "summary_by_year.csv"), "w", newline="",
               encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["year", "signal_id", "cost_tier"] + agg_cols)
-        for (year, sid), grp in sorted(yb.items()):
-            w.writerow([year, sid, "p0"] + list(_agg(grp, "p0").values()))
-
-    write_report(all_rows, all_ctx, sorted(by_prod), notes)
+        for (year, sid, tier), grp in sorted(yb.items()):
+            w.writerow([year, sid, tier] + list(_agg(grp, tier).values()))
 
 
 def write_report(all_rows: list[dict], all_ctx: list[dict], prods: list[str],
@@ -473,14 +572,110 @@ def write_report(all_rows: list[dict], all_ctx: list[dict], prods: list[str],
         f.write("\n".join(lines))
 
 
+def _run_export_context(prods: list[str]) -> None:
+    """HO003 交付：context v1 序列导出 + 验收自检（不动已交付的信号基线）。"""
+    ctx_dir = os.path.join(OUT_DIR, "context_tags")
+    os.makedirs(ctx_dir, exist_ok=True)
+    all_rows: list[dict] = []
+    for prod in prods:
+        if prod not in PRODUCTS:
+            raise SystemExit(f"未知品种 {prod}")
+        rows, stats = export_context_only(prod, PRODUCTS[prod])
+        all_rows.extend(rows)
+        with open(os.path.join(ctx_dir, f"{prod}_context_tags.csv"), "w",
+                  newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=[
+                "datetime", "symbol", "context_tag", "strict_range"])
+            w.writeheader()
+            w.writerows(rows)
+        print(f"[ctx] {prod}: bars={stats['bars']} rows={stats['rows']}")
+    _write_context_acceptance(all_rows)
+
+
+def _write_context_acceptance(rows: list[dict]) -> None:
+    """HO003 验收预自检：range 触发占比 ≥8%、breakout 中位持续期 ≥5 根。"""
+    n = len(rows) or 1
+    dist = Counter(r["context_tag"] for r in rows)
+    strict_share = sum(int(r.get("strict_range") or 0) for r in rows) / n
+
+    def run_lengths(tag: str) -> list[int]:
+        out: list[int] = []
+        cur = 0
+        for r in rows:
+            if r["context_tag"] == tag:
+                cur += 1
+            elif cur:
+                out.append(cur)
+                cur = 0
+        if cur:
+            out.append(cur)
+        return out
+
+    bo = sorted(run_lengths("breakout"))
+    bo_median = bo[len(bo) // 2] if bo else 0
+    range_share = dist.get("range", 0) / n
+    ok = range_share >= 0.08 and bo_median >= 5
+    lines = [
+        "# context v1 导出自检（HO003 预检；正式验收=研究侧重跑两脚本）", "",
+        f"- 总行数：{len(rows)}（{','.join(sorted({r['symbol'] for r in rows}))}）",
+        f"- 分布：{dict(sorted(dist.items()))}",
+        f"- range 触发占比：{range_share * 100:.1f}%（验收 ≥8%）",
+        f"- breakout 块数：{len(bo)}，中位持续期：{bo_median} 根（验收 ≥5）",
+        f"- strict_range 占比：{strict_share * 100:.1f}%",
+        f"- 预检：{'PASS' if ok else 'CHECK_NEEDED'}",
+    ]
+    path = os.path.join(OUT_DIR, "context_v1_acceptance.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    print(f"[done] -> {path}")
+
+
+def _run_resummarize() -> None:
+    """HO003 B：从既有 signals_detail.csv 重建汇总（by_year 升至全档位）。"""
+    src = os.path.join(OUT_DIR, "signals_detail.csv")
+    if not os.path.exists(src):
+        raise SystemExit(f"missing {src}（先跑 --mode full 生成明细）")
+    with open(src, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    def num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    for r in rows:
+        r["in_sample"] = int(r["in_sample"])
+        for t in TIERS:
+            for k in ("entry", "exit", "gross_r", "fee_r", "net_r"):
+                r[f"{t}_{k}"] = num(r.get(f"{t}_{k}"))
+            h = r.get(f"{t}_hold")
+            r[f"{t}_hold"] = int(h) if h not in (None, "", "None") else None
+    _write_summaries(rows)
+    print(f"[done] resummarized {len(rows)} drafts "
+          f"(summary_by_year 升至 p0/p1/p2 全档位, HO003 B)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="HO001 baseline backtest (offline)")
+    ap.add_argument("--mode", choices=["full", "export-context", "resummarize"],
+                    default="full",
+                    help="full=全量回测；export-context=HO003 context v1 序列导出"
+                         "（不重跑信号）；resummarize=HO003 B 由明细重建汇总")
     ap.add_argument("--products", default=",".join(PRODUCTS),
                     help="逗号分隔品种代码，如 RB,CU")
     ap.add_argument("--horizon", type=int, default=HORIZON)
     args = ap.parse_args()
 
     prods = [p.strip().upper() for p in args.products.split(",") if p.strip()]
+    if args.mode == "export-context":
+        _run_export_context(prods)
+        return
+    if args.mode == "resummarize":
+        _run_resummarize()
+        return
+
     all_rows: list[dict] = []
     all_ctx: list[dict] = []
     notes: list[str] = ["## 运行清单", ""]

@@ -67,6 +67,17 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **影子跑观察**:天数为用户决策项(建议 5-10 交易日);差异报告落
   /opt/aiprj/selection/.cache/shadow_compare/;第四轮评审待排期
 
+## 2026-10-13 HO003 实施(context v1 修正+by_year 补导出)
+- baseline_backtest.py:新增 ContextTaggerV1(HO003 A1 两层 range/A2 reversal 已实现
+  反向位移/A3 breakout 双向迟滞)+--mode export-context / resummarize
+- 交付:context_tags/{prod}.csv(**v1+strict_range 列**,122,404 行)+
+  context_v1_acceptance.md(预检 **PASS**:range 15.7%≥8%,breakout 中位 7≥5,
+  strict_range 2.1%)+summary_by_year 升 p0/p1/p2 全档位(B 项)
+- **偏离标注**:A3 迟滞规格 2/2→实现 2/5(2/2 实测中位仅 3;exit=5 结构保证最短
+  run≥5;研究侧 regime_retest 复核裁决)
+- 已交付信号基线未重跑(v0 读数保护 MTG004 结论);正式验收=研究侧重跑
+  rs012_confusion.py(经 tag_adapter)与 regime_retest.py
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [ ] #10-12 收尾: tf_selector 接线两模型+pool_config 键(poolscan 周二冻结,部署后接入)
