@@ -6,9 +6,14 @@
 ## 环境
 - **106 生产机**: `ssh tony@192.168.50.106`(tony 免密 sudo);本地代理 `192.168.50.106:7890`(GitHub 抖动时 git 加 `-c http.proxy=…`)
 - **三仓(当前 head,工作区干净,全部已推送)**:
-  - `D:\AIprj\quant-repo` main=**7290cee**(Phase A 全量实施:tf_selector 接线/组合策略基座与两具体类/影子 boot/排空脚本;selfcheck 74→77);**106 已部署并常驻影子跑**(trend_pullback RB0/CU0,1d,ShadowSink,日志 /home/tony/shadow_boot.log)
-  - `D:\AIprj\vnpy` master=**(7e0abf6+62839f2)**HO001 基线+HO002 两 detector+DEC003/DEC004;**HO002 已于 04:06 部署 106**(默认关,11 detector 验证,preflight 6/6);基线产物 vnpy_patiming/output/baseline/ 未入库
-  - `D:\AIprj\Cloudflarewebhook` main=**e7d1d7a**(胶囊已删除迁移,历史仍含本文件)
+  - `D:\AIprj\quant-repo` main=**c81696c**(Phase A 全量+第四/五/六轮评审闭环+影子
+    systemd 常驻+位阶闸门;106 已同步,远端 selfcheck 82/82)
+  - `D:\AIprj\vnpy` master=**(7e0abf6…本文件提交)**HO001 基线+HO002 两 detector
+    (已部署 106,默认关)+DEC003/004+HO003 ContextTaggerV1(v1 验收: A3✓/A1 部分✓/
+    A2✗ reversal 编排禁用)+strategy_research 全量入库(研究侧 RESEARCH_HANDOFF.md
+    为对位胶囊);基线产物 vnpy_patiming/output/baseline/ 未入库
+  - `D:\AIprj\Cloudflarewebhook` main=**e662ac7**(胶囊迁出+WEBHOOK_SECRET 明文脱敏;
+    **remote 内嵌凭据已剥离**,git 推送改走凭据管理器)
 - **106 部署布局**: `/opt/aiprj/selection|services|research/alpha_lab|sync_service|vnpy_patiming|venv`、`/opt/aiprj/cache`、`/home/tony/.hermes/`
 - **⚠️ 本地工具坑(实测)**: pwsh 无 git(PATH)→用 `C:\Program Files\Git\cmd\git.exe`;pwsh→ssh 传参**内层双引号会被吞**(内层一律单引号;复杂脚本 `base64 -d | bash`);捆绑 Python 无 matplotlib、无 git;**loguru 默认 sink 是 DEBUG 级**——降 debug 不减 journald 量,要节流;PowerShell 单行命令里 `$` 会被展开
 
@@ -133,6 +138,13 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   (selection 三价须 支撑<挂单<压力,失配拦截+日志计数;价位缺失放行)+排版改
   **方向语义标注**(short=目标(下)/风险(上),long=目标(上)/风险(下));三网关回归过,
   已部署 106(c81696c),15:05 起新排版+双通道+闸门三合一生效
+- **会话收尾(10-13 午后)**:三移交单(HO001/002/003)全部处置闭环;第六轮评审 PASS
+  已归档(reviews_v2/round4/5/6 三份报告在库);影子 N=5 窗口 10-19 收线、
+  **10-20 09:30 出差异清单提交用户确认**;**提醒迁移**:原会话挂有 10-14 09:30
+  影子晨检(含晚盘首触确认)与 10-20 09:30 差异清单两提醒——新会话须重挂;
+  15:00 日线波段首跑/15:05 双通道首秀的结果以 journal 与微信实收为准;
+  水位文件(shadow_compare/watermarks_*.json)应在首个成功 flush 节点后出现
+  (commit-on-flush 语义,缺失=5B-1 复发,立即查)
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
