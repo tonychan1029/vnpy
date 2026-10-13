@@ -213,6 +213,22 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **死循环排查(用户报,22:16)**:生产端零循环——四服务 NRestarts=0,夜盘影子
   每分钟正常喂条,22:00 收线仅 1 条推送(AU0),Hermes 零错误;疑为 GUI 选项框
   渲染问题,与生产无关。
+- **晚间旧格式微信消息定性(23:4x,用户确认)**:21:02:44 的【盘后选品】旧版式
+  消息=**Hermes 自己的分工功能所发**(非生产选品链路;当晚 21:00 生产端零运行,
+  网关/Hermes 路由队列均无痕迹)。**用户裁定:保留,不处理**。
+- **cloudwebhook 腿端到端健康实证**:直探 Worker(hook.quaiin.link)返回
+  {ok:true,topic:pa-latest-monitor}→手机 app "just now" 收到;gateway→Worker
+  22:42 同样 2xx。**注意 topic 路由**:selection 类被 Worker 归入
+  `pa-latest-monitor` 主题——app 推送通知与该主题的订阅/免打扰关系待用户核对。
+- **🔴 统一发送出口(用户指令,设计议题留下次会话,先出方案再审)**:
+  现状=微信(Hermes 侧,含分工功能+webhook 路由两套)与 cloudwebhook(App 侧)
+  各自独立,配置/密钥/故障面割裂;hermes /webhooks/ops 路由对网关推送存在
+  **"script ignored" 静默不执行**(gateway.log 16:28:32 实证,即使 2xx)。目标:
+  单一发送入口、两接收方同源同文、一套密钥。方案候选:①网关唯一出口,hermes
+  路由修活(查 ignored 判定);②微信侧完全交分工功能,网关仅保留 cloudwebhook
+  腿。**待用户选型后再动**。轮换未完项:Worker Secret(用户面板/wrangler login
+  二选一)→106 gateway_config 两处→Hermes config platform+weixin+ops 三处
+  (同为旧值,须同批切)→TEST 端到端;新值不入任何 GitHub 文件。
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
