@@ -118,8 +118,13 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   (+3 个失败路径用例)/4B-5 一行修/MINOR 批(4B-6 门禁 exchange/4B-7 断言更新+
   回归口径文档化/4B-8 交易所反查/4B-9 首启水位=boot/4B-10 cfg 透传/4B-11 drain
   REVOKED+PENDING_APPROVAL/4B-12 拒多产品 list)/H14 SKIP 单独计数
-- **106 已同步修复版**(远端 selfcheck 80/80);**第五轮复审已派发**(范围=整改
-  核验+回归),PASS 后重启影子窗口(N=5 重计)
+- **106 已同步修复版**(远端 selfcheck 80/80);**第五轮复审结论 FAIL(唯一项
+  5B-1 MAJOR):4B-9 整改是死代码**——boot 绑实例属性,基座经 type(self) 类级
+  查找落 None → 首启陈旧评估未消+水位持久化静默丢失(较 165315c 回归);
+  **已修**(f0d75c3:两处 type(self)→self + 5N-1 告警实例优先 + 5N-2 死导入
+  + 5N-3 boot 形态自检用例×2),全量验证绿(selfcheck 82/82、网关、回归 11),
+  **106 已同步**(远端 selfcheck 82/82);**第六轮复审已派发**(范围=5B-1 核验),
+  PASS 后重启影子窗口(N=5 重计)
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
