@@ -6,8 +6,8 @@
 ## 环境
 - **106 生产机**: `ssh tony@192.168.50.106`(tony 免密 sudo);本地代理 `192.168.50.106:7890`(GitHub 抖动时 git 加 `-c http.proxy=…`)
 - **三仓(当前 head,工作区干净,全部已推送)**:
-  - `D:\AIprj\quant-repo` main=**718d7db**(Phase A 本地项: legacy 排空查询/universe 生成器/set_bindings staticmethod 修复+壳生命周期自检/evaluate_product 提取;selfcheck 57→74)
-  - `D:\AIprj\vnpy` master=**7e0abf6**(HO001 基线回测脚本+HO002 两 detector 默认关+16 单测;strategy_research 已入库;基线产物 vnpy_patiming/output/baseline/ 未入库)
+  - `D:\AIprj\quant-repo` main=**7290cee**(Phase A 全量实施:tf_selector 接线/组合策略基座与两具体类/影子 boot/排空脚本;selfcheck 74→77);**106 已部署并常驻影子跑**(trend_pullback RB0/CU0,1d,ShadowSink,日志 /home/tony/shadow_boot.log)
+  - `D:\AIprj\vnpy` master=**(7e0abf6+62839f2)**HO001 基线+HO002 两 detector+DEC003/DEC004;**HO002 已于 04:06 部署 106**(默认关,11 detector 验证,preflight 6/6);基线产物 vnpy_patiming/output/baseline/ 未入库
   - `D:\AIprj\Cloudflarewebhook` main=**e7d1d7a**(胶囊已删除迁移,历史仍含本文件)
 - **106 部署布局**: `/opt/aiprj/selection|services|research/alpha_lab|sync_service|vnpy_patiming|venv`、`/opt/aiprj/cache`、`/home/tony/.hermes/`
 - **⚠️ 本地工具坑(实测)**: pwsh 无 git(PATH)→用 `C:\Program Files\Git\cmd\git.exe`;pwsh→ssh 传参**内层双引号会被吞**(内层一律单引号;复杂脚本 `base64 -d | bash`);捆绑 Python 无 matplotlib、无 git;**loguru 默认 sink 是 DEBUG 级**——降 debug 不减 journald 量,要节流;PowerShell 单行命令里 `$` 会被展开
@@ -46,6 +46,26 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   **set_bindings staticmethod 修复**(类属性函数描述符会把 self 注入绑定回调——评审盲区自检抓到的真 bug);
   selfcheck 57→74;test_late_night_close_fires_at_0230 为存量失败(stash 验证),待查
 - **错误提交处置**:QUANT_HANDOFF.md 从 Cloudflarewebhook 迁至 vnpy 根并入库;e7d1d7a 删除已推
+
+## 2026-10-13 上午 Phase A 收官(用户授权解除窗口限制)
+- **#10-12 接线**:两模型 exec_timeframe 经 tf_selector(atr_pct 指标;pool_config 新增
+  scan.exec_tf_rules/default_exec_tf;指标缺失回落 monitor_tf)
+- **#7 装包**:vnpy_portfoliostrategy==1.3.0(本地+106 venv;PyPI 无 4.4.0——胶囊旧表述
+  "版本对齐 4.4.0"实指兼容 vnpy 核心 4.4.0,已核)
+- **#1 具体策略类**:strategies/framework_base.py(组合基座:分品种 BarGenerator 字典/
+  分品种水位与 prev_bucket/CloseAggregator 单次 replace)+两具体类;与 template.py 1.3.0
+  逐条对齐(构造签名/update_setting 白名单/on_bars 切片/load_bars 预热)
+- **#6+#3+#4**:services/framework_boot.py 影子跑(poll 切片合成 1m→on_bars;ShadowSink
+  零生产影响;legacy PoolStore 快照喂 ShadowComparator;InstructionSink 真提交代码层
+  PhaseBError 门禁,评审 PASS 前不可开);数据模式=poll(影子不依赖 CTP;Phase B 真订阅
+  另接 OI 解析器)
+- **#8 排空脚本化**:scripts/drain_legacy_instructions.py(plan 默认;apply 双门禁)
+- **#7 附带**:poolscan 新版(含 #2 evaluate_product+tf_selector 接线)已部署 106 并重启
+  runner——影子对比两侧同版本,无漂移
+- **部署验证**:106 远端 selfcheck 77/77;影子常驻(PID 4089376,/home/tony/shadow_boot.log,
+  首次评估节点=下一个 60m 收线);production runner/poolscan 重启后 active
+- **影子跑观察**:天数为用户决策项(建议 5-10 交易日);差异报告落
+  /opt/aiprj/selection/.cache/shadow_compare/;第四轮评审待排期
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
