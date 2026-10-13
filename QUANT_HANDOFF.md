@@ -80,6 +80,10 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   内联 640 配置,值=Worker README 记录的 1008991001),--test 双腿发送成功,15:05 盘后
   选品起双通道送达。**密钥卫生待办**:WEBHOOK_SECRET 明文见 Cloudflarewebhook README/
   HANDOFF,建议轮换并停止入库(需同步 Worker secret+Android local.properties)
+- **第四轮评审启动(10-13 午)**:对话管线独立子代理评审员(与实施者隔离),范围=Phase A
+  全量+历史 CLOSED/OPEN 核验+三点质疑权行使;报告将落 quant-repo
+  reviews_v2/phase_a_round4_review.md(首份存档)。**时点注**:11:31 选品推送发生在
+  11:46 fanout 切换前(仅 Hermes);首次真实双通道=15:05 盘后选品
 
 ## 2026-10-13 HO003 实施(context v1 修正+by_year 补导出)
 - baseline_backtest.py:新增 ContextTaggerV1(HO003 A1 两层 range/A2 reversal 已实现
