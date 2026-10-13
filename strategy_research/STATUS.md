@@ -10,6 +10,55 @@ updated: 2026-10-12
 > 单页视图：当前在途、阻塞、待审批一览。每轮自主工作后更新。
 > **完整交接胶囊见 `RESEARCH_HANDOFF.md`**（2026-10-13 建，每会话结束同步更新）。
 
+## 最近动态（2026-10-13 下午）
+- **HO004 已转 final（用户批复"同意工程改造"）**：reversal 退役旧规则+
+  R-C v2 实装移交单签批完毕；交付契约=工程导出
+  `context_tags_v2/`（新目录，v1 目录保留作 B3 对照）；研究侧验收 runner
+  `code/analysis/ho004_acceptance.py` 已预置（等待态验证通过）——
+  工程交付后即跑 B1（GT v2 ≥30%）/B2（GT 变体 ×4 均 ≥25%，失败回滚 A2
+  保留 A1）/B3（RANGE/BREAKOUT 非退化）
+- **HO004 草案内容**：用户批复"同意退役和实装"→
+  `60_decisions/HO004_context标签v2_reversal退役与重定义移交单.md`——
+  A1 退役 v0/v1 旧 reversal 规则与语义 / A2 实装 R-C v2（先行腿≥2ATR+
+  反向位移≥1ATR+回撤≥50%，占位提至 trend 前，参数固定）/ A3 导出不变；
+  预注册验收 B1 主线（GT v2 列精确率≥30%）+ **B2 敏感性护栏**（GT leg
+  窗/阈值 4 变体均≥25%，回应定义亲和 caveat）+ B3 非退化 + B4 消费方
+  改挂（S-003 DT/DB 背景 {range,reversal}→{range}）；零交易风险
+  （reversal 为仪表标签，编排不消费）
+- **DEC005 落档**：用户批复 RS015 方案 B（GT 协议修订后重测）/ 方案 B2
+  （range 继续挖新变量）/ RS016 批准执行——三项均已完成闭环（下三条）
+- **RS016 RER 正式实验执行完毕：终止，负结果入档**——C 臂多头可交易口径
+  in −0.288R / out −0.199R、**0/6 品种正**、11/12 负年（G1/G3 FAIL，G2 PASS
+  n=683）；臂间口径 C>A>B 单调完全复现（+0.106/+0.074/+0.035%）——
+  **strict_range 环境效应真实，但预注册的 T1=2R fade 机制（开盘入场）收割
+  不了**；与基线锚 +0.215 分歧主候选解释=入场机制差异（引擎确认触发 vs
+  本实验开盘入场，属未立项新题）；range_edge 闸门维持 v0 range 不放宽
+- **RS015 方案 B 执行完毕：达标（31.6% ≥30% 线）**——GT v2（第一腿 as_of
+  锚定）下最优 R-C hi（先行腿+1ATR 反向位移+回撤50%）in/out 31.5/31.7% 极稳
+  → tagger v2 议题门正式打开；**但三 caveat 待 HO004 裁决**：LR 仅 1.06
+  （v2 基率已升至 29.8%）、hi 位触发 36.2% 大幅改占 TREND 标签位、规则与
+  GT leg1 定义同源存在亲和风险——"是否值得要这个标签"未决
+- **RS015 方案 B2 执行完毕：零晋升**——11 条预注册特征屏幕最优 out 21.0%
+  远低于晋升线（30%/LR1.8/8%）；F6 中部位置最强单特征（LR 1.62）仍未达线，
+  F1/F5/F7 反向信息；**range 维持 v1 宽口径+门控存疑降权，NR4 不实施**
+- **RS015 离线诊断完成（A2/A1 v2 议题的实证底座）**：与 GT v1.1 同网格实测
+  10 个 reversal 候选 + 5 个 range 候选——**reversal 结构规则全族无一过基率**
+  （最优 18.8% vs 基率 19.1%，含事件级判别），根因=GT 往返标签先验成分不可消，
+  "回调 vs 反转起点"在 60m 尺度 as-of 不可分；**RANGE 波动率状态变量方向确认
+  有效**：NR4（net20<1ATR ∧ ER20≤0.30 ∧ 内带15%）列精确率 20.1→23.2%、
+  LR 1.19→1.38、六品种 18–26%、in/out 稳定，但 40% 预注册线不可达。
+  三选项落档待用户裁决（reversal：退役除名（推荐）/GT 协议修订/维持；
+  range：NR4 进 v2（推荐）/继续挖/维持）——批准后转 HO004
+- **🔴 勘误（v1_acceptance）**："breakout 列 38.0%/LR 3.8×" 系行列读位笔误，
+  修正 **31.8%/LR 1.15**（弱正信息，仍三列最好）；A1/A3 验收结论不受影响，
+  CAND-007"半数对齐"强度下调；勘误已附录原文保留
+- **RS016 RER strict_range 正式实验开题落档**：假说（仅多头）/四臂
+  （C=strict_range∩形态 主臂，A/B 对照，基线锚 n=133）/双口径（臂间延续
+  rer_expand + DEC003 可交易性主判据）/预注册四门判读（G1 有效性→G4 弱环），
+  评审通过即可跑 rer_formal.py（无工程依赖）
+- 工具链新增：`code/analysis/context_v2_diagnostic.py`（v1 链复刻与候选实测，
+  对齐验证三项逐位复现官方数字）
+
 ## 最近动态（2026-10-13）
 - **P2 tick 分层完成（无需 tick 数据）**：突破族弱支持先验（差 −0.018）、
   回调/反转不支持——RS011 降级为监控维度；**验证队列 7 项全部闭环**
@@ -93,7 +142,9 @@ DOUBLE_BOTTOM 为正（+0.09~+0.14），EMA20 触碰显著为负（−0.20）。
 见 DEC004）；**Phase A 全量实施完成并启动影子跑**（trend_pullback RB0/CU0, 1d,
 ShadowSink——框架输出仅记录不通知，第四轮评审 PASS 前不切生产）；hermes 已恢复
 （用户确认交互正常）。
-**续跑剧本（2026-10-13 午间更新；按到达的输入触发）**：
+**2026-10-13 下午研究增补**：RS015（A2/A1 v2 议题+breakout 勘误）与 RS016
+（RER 正式实验预注册）落档；两者均**待用户/评审动作**，见下方续跑剧本 6/7。
+**续跑剧本（2026-10-13 下午更新；按到达的输入触发）**：
 1. **基线已到（✅ 已消化）**：MTG004 已成会（纪要 §1-10，决议见 §2/§3/§8-10）；
    S-001/2/3 §5 已回填；验证队列 7 项闭环
 2. **context_tag 已到（✅ 已消化）**：P1 混淆矩阵完成（RANGE 39.8% 门控存疑）；
@@ -104,8 +155,13 @@ ShadowSink——框架输出仅记录不通知，第四轮评审 PASS 前不切�
 4. **H1/W detector 已部署 106（默认关）**：独立评审 PASS 后 → H1/L1 切片实验
    （验证队列最后未闭环项）+ W/M 扩样
 5. **用户新批准/新指令** → 先写 DEC 记录再执行动作（治理惯例）
+6. **HO004 已 final，等工程拾取**（用户带至工程对话实施 A1/A2/A3，交付
+   `context_tags_v2/`）→ 研究侧跑 `ho004_acceptance.py`（B1/B2/B3 机械
+   判读，B2 失败回滚 A2 保留 A1）→ 验收报告入 assets/RS015/
+7. **RS016 已终局（终止，负结果入档）**——无后续动作；HO004-RER 不开
 **技术环境**：pytest 用 `.venv\Scripts\python.exe -m pytest strategy_research/code/tests -q`
-（15 项全过状态）；分析脚本 **25 个**在 `code/analysis/`（含交付消化全套
+（15 项全过状态）；分析脚本 **29 个**在 `code/analysis/`（本轮新增
+context_v2_diagnostic / rer_formal / rs015_followup / ho004_acceptance；含交付消化全套
 tag_adapter/rs012_confusion/regime_retest/rer_expand/conflict_tiebreak/
 risk_budget/p2_tick_strat/by_year_p1 等）；数据在 `D:/AIprj/tradereplay/data/`（只读）
 **关键实证结论速查**（均过样本外复测，详 assets/MLIB/holdout_check.md）：
@@ -130,6 +186,7 @@ risk_budget/p2_tick_strat/by_year_p1 等）；数据在 `D:/AIprj/tradereplay/da
 ## 硬阻塞（等外部）
 | 事项 | 等待 | 解锁后动作 |
 |------|------|------------|
+| **HO004 工程实施**（reversal 退役+R-C 实装，final 2026-10-13） | 工程对话执行，交付 `vnpy_patiming/output/baseline/context_tags_v2/` | 研究侧跑 `ho004_acceptance.py`（B1/B2/B3）出验收报告 |
 | ~~基线回测数据 + context_tag 序列~~ | ✅ 已交付（工程侧 2026-10-12 深夜，`vnpy_patiming/output/baseline/`：signals_detail/summary×2/baseline_report + context_tags/{prod}.csv；佣金=保证金×万3 双边，见 DEC003） | **MTG004 基线评审 → 验证队列 8 项启动** |
 | 布林带研报正文 | 访问已通（代理），PDF 解析待试 | 低优先级 |
 
