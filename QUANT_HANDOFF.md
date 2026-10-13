@@ -213,6 +213,27 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **死循环排查(用户报,22:16)**:生产端零循环——四服务 NRestarts=0,夜盘影子
   每分钟正常喂条,22:00 收线仅 1 条推送(AU0),Hermes 零错误;疑为 GUI 选项框
   渲染问题,与生产无关。
+- **统一出口 v1 实施(10-14 00:0x-00:2x,设计 3f8c49f/实施 68b75d3/修订 1f83d70)**:
+  用户明确需求=选品+择时**同时同格式**发 cloudwebhook 和 hermes;Hermes 自产
+  消息(分工功能)与本项目无关不动。实施:patiming_webhook 收敛为 stream→统一
+  队列薄桥(自渲染/自 fanout 删除);网关迁入 timing 渲染分支+topic 按类目
+  (selection=pa-latest-monitor/timing=pa-signal,config 可覆盖);webhook_queue.py
+  "script ignored" 读码定性=设计内行为(故意无 stdout,投递归 watchdog),不修。
+- **Round-8 独立评审 PASS-WITH-FINDINGS**(reviews_v2/phase_a_round8_review.md):
+  M-1 test_mode 隔离失效→已修+回归护栏(14 passed);M-2 保守解=部署脚本向 106
+  config 插 topic_timing: pa-latest-monitor(App 行为保持现状,pa-signal 待用户
+  确认订阅后再切);M-3 密钥轮换**与本批解耦**(与 Worker 原子协同另行安排,
+  避免单腿 401 连锁停摆)。format_signals 新旧版 7 组用例逐字节一致、timing
+  布局 4 组逐行 IDENTICAL(评审机械验证)。
+- **部署就绪(10-14 04:15 一次性 cron 已挂+试跑 NO-OP 验证)**:
+  /etc/cron.d/notify-unified-deploy-20261014;硬要求已编码=仅同步 2 个 .py
+  (md5 2270a8a9/45483cfe=stage 逐位一致)、**重启顺序 quant-webhook 先于
+  patiming-webhook**、回滚反序、config 备份+yaml 校验、严禁覆盖 106 config
+  其余内容;核验 journalctl -t notify-deploy。晨检提醒已含两部署核验。
+- **遗留(用户侧)**:①Worker Secret 切换(面板/wrangler login)+APK 重建;
+  ②App 对 pa-signal 主题订阅确认(确认前 timing 落 pa-latest-monitor 保持现状);
+  ③WEBHOOK_SECRET 五处同值轮换(与 Worker 原子协同,方案见统一出口设计稿);
+  ④ 统一后首晚观察两通道同文同时到达(晨检 ⑨)。
 - **晚间旧格式微信消息定性(23:4x,用户确认)**:21:02:44 的【盘后选品】旧版式
   消息=**Hermes 自己的分工功能所发**(非生产选品链路;当晚 21:00 生产端零运行,
   网关/Hermes 路由队列均无痕迹)。**用户裁定:保留,不处理**。
