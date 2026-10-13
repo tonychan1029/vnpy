@@ -146,6 +146,58 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   水位文件(shadow_compare/watermarks_*.json)应在首个成功 flush 节点后出现
   (commit-on-flush 语义,缺失=5B-1 复发,立即查)
 
+## 2026-10-13 15:29-15:45 新会话开场核验:暴露两缺陷(已定因,待用户决策)
+- **15:00 日线波段首跑**: 扫描正常(Y0 long 入池),但 PA 提交被拒
+  `bad_selection_timeframe`(submitted=0)——根因=引擎侧
+  `vnpy_patiming/config.py` TIMEFRAME_MINUTES 白名单仅 1m~60m **无 1d**,
+  日线波段→PA 链路结构性不通,首次实跑才暴露;修复候选=加 "1d":1440
+  (engine 多处仅做分钟算术,低风险),须独立评审+04:00-05:15 窗口重启 patiming-engine。
+- **quant-shadow 14:54:36 起静默挂死**: poll 主线程阻塞于
+  feed.query_bar_history(无超时,无异常日志,进程 alive)→15:00 收线节点未评估
+  →影子首日零产出(无报告/无 watermarks_*.json;5B-1 整改本身经查**无复发**,
+  f0d75c3 的 self 解析在库在用)。已 `sudo -n systemctl restart`(新 PID 142456,
+  boot 水位 15:40);加固方案(线程超时/静默看门狗/双管)待用户选。
+- **framework_base.py:74-79 假警报**: 5N-1"实例优先"修复只落在
+  selection_strategy.py,framework_base 内重复告警块仍旧 type(self) 类级查找
+  →每次 boot 必报 `binding sink missing`(实际实例 sink 已绑,评估能力无碍)。
+  cosmetic,并入下批评审。
+- **15:00:37 双通道推送核验通过**: SC0(60m short)fanout 双腿成功
+  (无 网关异常/fanout partial failure),位阶闸门未拦截。
+- **Y0 信号未达用户(补记)**: Y0 long trend_pullback,支撑 8817/压力 9286,
+  RR 2.68,BULL_TREND,valid_bars=12(1d)。是否窗口修复后手动补投待用户定。
+- 本会话已重挂提醒: 10-14 09:30 影子晨检(含挂死处置指引)+10-20 09:30 差异清单
+  (N=5 起算是否后移待用户定,决定后同步改提醒)。
+
+## 2026-10-13 16:2x Round-7 评审+修复+即时部署(新会话首战全记录)
+- **用户决策(4+1)**:引擎 1d 修复+明晨窗口部署;影子=超时+看门狗双管;N=5 自
+  10-14 重计(差异清单挪 **10-21 09:30**,提醒已改);Y0 不补投等 10-14 15:00
+  自然重扫;通知文案"盘后选品"→"选品通知"。
+- **Round-7 独立评审 PASS-WITH-FINDINGS**(reviews_v2/phase_a_round7_review.md):
+  MAJOR-1(stage/cron 未挂)当晚闭环;MINOR-2 文档随批修;MINOR-6 补两用例
+  (1d sel>exec 接受+2d 拒;engine_extras 9 passed);MINOR-1/3/4/5 接受记 v2。
+- **实施(vnpy=3b2d72d / quant-repo=28b2430,均已推)**:
+  vnpy_patiming config +`"1d":1440`+engine 移除 selection_gt_exec(**1d 倒计时
+  =自然日语义,12 bar≈12 自然日,偏保守,已知接受**);framework_boot 90s 有界
+  取数+心跳文件;framework_base 5N-1 同步(boot 假警报根除);文案三处+HERMES
+  两文档;deploy/ 四件套(引擎一次性部署脚本+影子看门狗脚本/单元)。
+- **106 即时部署(16:23-16:28;备份后缀 .bak_20261013_r7)**:poolscan/
+  framework_boot/framework_base→/opt/aiprj/selection;**gateway→/opt/aiprj/services/**
+  (quant-webhook 实际运行路径;首装误至 selection/services,已纠正——该处副本
+  也同步更新但服务不消费);三服务重启全 active;**boot 无假警报**;心跳就位;
+  quant-shadow-watchdog.timer enabled(active/5min);零 Traceback。**远端 gateway
+  补齐了落后 HEAD 的位阶闸门+方向化标签**(10-13 午"已部署 c81696c"对 gateway
+  文件不成立,系漏同步,已纠正)。**端到端已验证**:注入 TEST.SHFE 选品样例→
+  新标题【选品通知】+位阶闸门通过+fanout 双腿+队列清空(用户两通道应已收到
+  一条 TEST 测试;窗口=3s/max_staleness=30s/队列 quant:queue:signals@6381/0)。
+- **引擎窗口部署就绪(MAJOR-1 闭环)**:/home/tony/engine_stage_20261014 md5==
+  脚本常量逐位一致;/etc/cron.d/patiming-engine-deploy-20261014 已挂
+  (5 4 14 10 * root);窗口外试跑=正确 NO-OP 且 cron 保留。**10-14 04:05 自启,
+  核验:journalctl -t engine-deploy --since '2026-10-14 04:00'**。
+- **⚠️ vnpy 推送远端=fork/patiming-production**(origin=上游公共仓 vnpy/vnpy,
+  403 不可推;fork/master=官方上游历史,勿混推)。
+- 新选品排版首次真实双通道=今夜夜盘 60m 收线起;影子首个评估节点=10-14 15:00
+  (框架侧);晚盘补跑首触仍=10-14 凌晨 01:00/02:30。
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [ ] #10-12 收尾: tf_selector 接线两模型+pool_config 键(poolscan 周二冻结,部署后接入)
