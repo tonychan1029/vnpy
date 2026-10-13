@@ -92,8 +92,27 @@ AG 样本外 TREND_UP 9.9→21.6%（白银转牛）。
 **用途**：MTG004 判读"样本外衰减"时，先用此表区分**策略退化**与**阶段结构迁移**
 ——若某信号族在"其依赖阶段占比下降"的品种上衰减，衰减归因须打折。
 
+## 5. 判定侧实测（2026-10-13，工程交付 context_tag v0 到达）
+- 输入：`vnpy_patiming/output/baseline/context_tags/`（6 品种，2015 起）；
+  适配映射（tag_adapter.py，忠实 v0 规则）：breakout/range/reversal 直映，
+  trend_strong/trend_channel 按 close−EMA20 符号拆 TREND_UP/DN（v0 规则即同向要求）
+- 合并混淆矩阵（n=19,167）：见 assets/RS012/confusion_report.md
+- **预注册判读触发：RANGE top-pred 精确率 39.8% < 40% → 门控存疑**（差 0.2pp）
+- 细读：
+  - v0 的 RANGE 标签极度稀少（全程仅 1,019 次触发，其中仅 2.7% 落在 GT RANGE 上）
+    ——v0 range 条件（|close−EMA20|≤0.25ATR 且 40 根宽 ≤4ATR）过苛
+  - **breakout 列精确率 49.2%**（939/1,908）——v0 最好的一列，
+    CAND-007 引擎标签门控有半数对齐，可用但需容忍漏检
+  - reversal 列精确率仅 15.7%；trend 大类与 GT TREND_* 定义性分歧较大
+    （v0=EMA 斜率口径，GT v1.1=净位移口径——分歧部分为定义差非错误）
+- **预案启动（RS012 §4）**：RANGE 门控按"降权+人工复核"使用；
+  建议 MTG004 议程增补：生产侧 v1 是否修正（放宽 range 条件、reversal 重定义）
+- 诚实边界：trend 拆向为研究侧适配（忠实 v0 规则，EMA 为 60m 现算）；
+  GT 与 v0 概念口径差异如上
+
 ## 修订记录
 | 日期 | 修订内容 | 修订人 |
 |------|----------|--------|
 | 2026-10-12 | 初建：真值操作性定义（前瞻实现）、混淆矩阵、成本不对称分析、预注册判读标准 | QA+RISK |
 | 2026-10-12 | **GT v1.1**（实跑 6 品种 2.6 万样本后修订，两处定义缺陷）：① 优先级定为 TREND→RANGE→REVERSAL→BREAKOUT（破位 2ATR 又回落=失败突破归 REVERSAL，不再被 BREAKOUT 截走）；② TREND 方向一致性按净位移方向计（原实现下跌方向一致性恒为 0，TREND_DN 永不触发）；③ REVERSAL 加往返条件（净位移<1.5ATR）防高波动路径误吸。修订后分布跨品种稳定（BREAKOUT 25-31% / TREND_DN 18-24% / REVERSAL 17-21% / RANGE 15-20% / TREND_UP 13-17%），真值侧数据已落 assets/RS012/ | QA+BTE |
+| 2026-10-13 | **§5 判定侧实测**：工程 context_tag v0 到达，适配后跑混淆矩阵（n=19,167）——RANGE 39.8% 触发"门控存疑"预案；breakout 列 49.2% 尚可用；三项 v1 修正请求（HO003） | RES+QA |

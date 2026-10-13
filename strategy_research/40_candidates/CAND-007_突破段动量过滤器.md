@@ -7,7 +7,14 @@ category: 趋势
 impl_scope: 日内/短期（S-001 叠加过滤器）
 env_feasibility: 可实现（纯 OHLCV；mom6 与 GT 阶段标注均已研究级落地）
 heat_evidence: 合并非重叠口径 BREAKOUT 段 IC +0.364(n=1449)；6/6 品种符号一致；IC@5/10/20/40 根全存活（+0.22/+0.27/+0.28/+0.19）；阈值曲线单调（设计参数见 RS013 §2a.3）
-status: evaluating
+status: gated
+# 2026-10-13 引擎标签版复算：**未通过**——mom6×引擎 breakout 标签 IC +0.029
+# （n=728），对照无条件 +0.021，门控增量≈0.008 不足以支撑复杂度。
+# 根因：GT 版度量"处于突破 regime"的持续溢价（+0.36）；引擎标签在穿越事件
+# 当刻触发（regime 起点），该时点剩余边际已被穿越前动量消耗。
+# 佐证：基线 BREAKOUT_KEY_LEVEL（同为穿越时刻入场）−0.026≈零。
+# 方向：待 v1 标签修正（RS012 §5）或改用"regime 持续期标签"再试；
+# GT 版 regime 溢价仍为有效研究发现。详见 assets/RS013/cand007_engine_tag.md
 ---
 
 # 候选卡：突破段动量过滤器

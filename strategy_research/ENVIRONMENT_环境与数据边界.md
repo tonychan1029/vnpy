@@ -46,11 +46,11 @@ updated: 2026-10-12
 ## 6. 需求与依赖登记表（对外，living）
 | # | 需求 | 依赖方 | 状态 |
 |---|------|--------|------|
-| R1 | 基线回测数据（HO001） | 工程侧 | 已批准待交付 |
-| R2 | context_tag 序列导出（RS012 B 项） | 工程侧 | 已随确认单提出；**对接契约（2026-10-12）**：CSV 列 `datetime,symbol,pred_label`（label ∈ BREAKOUT/RANGE/REVERSAL/TREND_DN/TREND_UP/UNDEFINED），落位 `assets/RS012/incoming/predictions.csv`，跑 `code/analysis/rs012_confusion.py` 即出混淆矩阵报告（runner 已就绪+冒烟通过）；同文件兼供 CAND-007 引擎标签版复算 |
-| R3 | H1/W detector 实现（HO002-C） | 工程侧 | 已批准待交付 |
-| R4 | TradingView/聚宽/PDF 访问解决（HO002-D） | 工程侧 | 已批准待交付 |
-| R5 | 1m 全品种清单与数据边界确认（tick 有无） | 工程侧 | **新增待确认** |
+| R1 | 基线回测数据（HO001） | 工程侧 | **✅ 已交付**（2026-10-12 23:49，vnpy_patiming/output/baseline/）；findings：by_year 仅 p0 档（p1/p2 分年待补） |
+| R2 | context_tag 序列导出（RS012 B 项） | 工程侧 | **✅ 已交付**（v0）；对接契约与 runner 见 assets/RS012/incoming/README。**v1 修正请求（2026-10-13，MTG004 后升级为三项，待批准）**：① RANGE 条件放宽（现仅 0.9% 时间触发、判定准确率不达标）；② reversal 列修正（精确率 15.7%）；③ breakout 标签加迟滞/最小持续期（58% 单根即离，闪烁使 regime 类研究在生产端不可实现——RS013 regime_exit.md 三重证据） |
+| R3 | H1/W detector 实现（HO002-C） | 工程侧 | **✅ 已实现待独立评审**（PullbackOrdinalDetector + WmDetector，默认关闭，16 单测过——QUANT_HANDOFF 2026-10-12） |
+| R4 | TradingView/聚宽/PDF 访问解决（HO002-D） | 工程侧 | **✅ 部分解决**（代理通道可读 TradingView ✅；聚宽需无头浏览器；付费 PDF 待人工） |
+| R5 | 1m 全品种清单与数据边界确认（tick 有无） | 工程侧 | **研究侧已实测（2026-10-13）**：① tick 数据不存在（data 顶层仅 15m/1m/30m/5m/60m/day）；② 1m 为全市场 91 品种（含金融期货），但仅约 1 个月历史（RB: 2026-09-07 起，7,960 根）——实时前向采集非回补。**结论**：P2 分层变量来自品种规格（tick/价格比，RS011 附录 A 已有），不需要 tick 数据即可跑基线信号分层检验；1m 前向积累对未来 1m 级微观研究有价值，建议保持采集 |
 | R6 | 数据采购类需求 | 用户单独批准 | 无（原则：不为单个候选采购） |
 
 ## 维护规则

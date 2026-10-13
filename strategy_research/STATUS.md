@@ -10,6 +10,15 @@ updated: 2026-10-12
 > 单页视图：当前在途、阻塞、待审批一览。每轮自主工作后更新。
 
 ## 最近动态（2026-10-13）
+- **P2 tick 分层完成（无需 tick 数据）**：突破族弱支持先验（差 −0.018）、
+  回调/反转不支持——RS011 降级为监控维度；**验证队列 7 项全部闭环**
+  （唯一未闭环的 H1/L1 切片等 detector 评审）
+- **S-004 编排裁决规则草案**（conflict_tiebreak.py）：5,812 对突破×回调同窗
+  反向冲突中，跟随突破正确率 54.2%（+968R 摆动）——**同窗反向冲突突破优先/
+  回调降权；同窗同向合并**（待 MTG 复核）
+- **RER 扩样机制证伪**：去 range 标签后裸形态转负（3.3 万笔）——RER 边际=
+  严格 range 环境×形态交集；**HO003-A1 验收增补两层 range 定义**
+  （宽口径+strict_range 子态）
 - **✅ 用户批准落定**：MTG004 全部决议 + 转工程两事项均确认（异议窗口关闭）；
   **HO003 已转 final**（context_tag v1 三项修正 + by_year 补导出，验收方式内建）
   ——待工程对话拾取执行
@@ -83,20 +92,21 @@ DOUBLE_BOTTOM 为正（+0.09~+0.14），EMA20 触碰显著为负（−0.20）。
 见 DEC004）；**Phase A 全量实施完成并启动影子跑**（trend_pullback RB0/CU0, 1d,
 ShadowSink——框架输出仅记录不通知，第四轮评审 PASS 前不切生产）；hermes 已恢复
 （用户确认交互正常）。
-**续跑剧本（按到达的输入触发）**：
-1. **基线数据到达** → 按 `70_meetings/MTG004-PREP` 开 MTG004（判读标准已预注册、
-   议程已含 MLIB 三议题与候选两对照臂，勿临场改标准）；S-001/2/3 §5 回填；
-   随后按验证队列顺序开工
-2. **context_tag 序列到达** → 先跑 RS012 混淆矩阵（`code/methods/context_eval.py`
-   的 agreement_matrix 已就绪，需写预测侧对齐 runner——数据到达后第一个任务），
-   再跑 CAND-007 可交易版复算
-3. **TradingView 访问**：✅ 已通（代理 127.0.0.1:7890，`curl.exe -x` 通道）；
-   CAND-001 已裁决 rejected；CAND-008/009 已采集待深评
-4. **用户新批准** → 先写 DEC 记录再执行动作（治理惯例）
+**续跑剧本（2026-10-13 午间更新；按到达的输入触发）**：
+1. **基线已到（✅ 已消化）**：MTG004 已成会（纪要 §1-10，决议见 §2/§3/§8-10）；
+   S-001/2/3 §5 已回填；验证队列 7 项闭环
+2. **context_tag 已到（✅ 已消化）**：P1 混淆矩阵完成（RANGE 39.8% 门控存疑）；
+   CAND-007 引擎版复测未过（gated）；**下一步=HO003 执行后三项复测**
+   （tag_adapter→rs012_confusion→regime_retest→rer_expand，脚本全部就绪）
+3. **HO003 移交单待工程拾取**（60_decisions/HO003_...md，final）：v1 修正三项
+   + 两层 range 定义 + by_year 补导出；验收=重跑研究侧现成脚本
+4. **H1/W detector 已部署 106（默认关）**：独立评审 PASS 后 → H1/L1 切片实验
+   （验证队列最后未闭环项）+ W/M 扩样
+5. **用户新批准/新指令** → 先写 DEC 记录再执行动作（治理惯例）
 **技术环境**：pytest 用 `.venv\Scripts\python.exe -m pytest strategy_research/code/tests -q`
-（15 项全过状态）；分析脚本在 `code/analysis/`（rs012_run / alpha101_ic /
-benchmark_run / exhaustion_h2h / dv001_check / sweep_check / trend_score_ic /
-holdout_check）；数据在 `D:/AIprj/tradereplay/data/`（只读）
+（15 项全过状态）；分析脚本 **25 个**在 `code/analysis/`（含交付消化全套
+tag_adapter/rs012_confusion/regime_retest/rer_expand/conflict_tiebreak/
+risk_budget/p2_tick_strat/by_year_p1 等）；数据在 `D:/AIprj/tradereplay/data/`（只读）
 **关键实证结论速查**（均过样本外复测，详 assets/MLIB/holdout_check.md）：
 突破段延续溢价（mom6 IC +0.18~0.36）、absorption 多头（+0.06~0.18%，仅多头/浅调或
 上升回调/闸门 prior_ret20>−5%）、聚集突破延续（+0.25~0.57%）、fade 顶部逆风、
