@@ -80,7 +80,8 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   的工作凭据);处置=用户发新 fine-grained token(三仓 Contents+Workflows RW,90 天)
   → 凭据管理器更新 → 三仓推送认证实测全过;Cloudflarewebhook remote 内嵌凭据段已剥离;
   旧三枚(codex/codex2/aicoder)用户网页删除;**新惯例:git 推送一律走凭据管理器,
-  remote/env 不再存 token 明文**
+  remote/env 不再存 token 明文**。**实证闭环(10-13 12:0x)**:泄露值重打 API 返回
+  401(已死亡),本条遗留彻底关闭
 - **cloudwebhook 缺信修复(10-13 午)**:用户报盘后选品未达 cloudwebhook——根因=106
   gateway_config `provider: hermes` 单通道,fanout 双路从未启用(CUSTOM_WEBHOOK_SECRET
   env 106 缺失);已切 `provider: fanout`(hermes 腿密钥走 ~/.hermes route;custom 密钥
