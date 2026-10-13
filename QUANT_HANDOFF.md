@@ -198,6 +198,22 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - 新选品排版首次真实双通道=今夜夜盘 60m 收线起;影子首个评估节点=10-14 15:00
   (框架侧);晚盘补跑首触仍=10-14 凌晨 01:00/02:30。
 
+## 2026-10-13 22:2x WEBHOOK_SECRET 轮换(进行中)+HO004 排期+研究侧入库
+- **研究侧入库**:RS015/RS016/DEC005/HO004(final)+GT rev2 标签+4 脚本,22 文件
+  da9e96f5 已推。HO004 工程实施已排入待办(见上)。
+- **轮换(用户 10-13 晚指定新值;新值不入任何 GitHub 文件,交接只记状态)**:
+  - ✅ Android:`cloudwebhook-android/local.properties` 已改(gitignored 实证);
+    **⚠️ 手机上已装 APK 仍持旧值,Worker 切新后旧 APK 会被拒——需重建安装**
+    (gradle 本机可构建,sdk.dir 在;待用户令);
+  - ⏳ Worker:本机 wrangler 未认证,两条路=用户面板改 Secret(WEBHOOK_SECRET)
+    或 `npx wrangler login` 后代执行 `secret put`;**Worker 未切前 106 不动**;
+  - ⏳ 106:`/opt/aiprj/services/gateway_config.yaml` 行 25 custom_secret+行 29
+    custom.secret 两处待切+重启 quant-webhook+TEST 注入端到端验证(备妥待发);
+  - 老值遗留说明:仓内 HEAD 已零残留(e662ac7 脱敏),仅历史提交与 106/旧 APK 存量。
+- **死循环排查(用户报,22:16)**:生产端零循环——四服务 NRestarts=0,夜盘影子
+  每分钟正常喂条,22:00 收线仅 1 条推送(AU0),Hermes 零错误;疑为 GUI 选项框
+  渲染问题,与生产无关。
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [x] #10-12 收尾: tf_selector 接线两模型+pool_config 键(10-13 上午完成;poolscan 新版已部署 106)
@@ -211,6 +227,15 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - [x] #7 venv 安装 vnpy_portfoliostrategy 1.3.0(本地+106)
 - [ ] #8 旧 id 指令排空执行(脚本就绪 drain_legacy_instructions.py,plan 默认/apply 双门禁;**执行待用户令**)
 - [ ] #9 通知模板(引擎侧,Phase C)
+- [ ] **HO004 工程实施(排期:下一会话窗口;用户 10-13 晚确认排入计划)**——移交单
+  final(用户已批"同意工程改造",strategy_research/60_decisions/HO004*.md):
+  A1 退役旧 reversal 规则(EMA 斜率×差值异号+5 根反向位移)/A2 实装 R-C v2
+  (先行腿 20 根极值幅度≥2.0×ATR+自极值反向位移≥1.0×ATR+回撤比例≥0.5,
+  占位于 trend 分支前)/A3 导出 `vnpy_patiming/output/baseline/context_tags_v2/`
+  新目录(v1 目录保留)+自检占比区间按 ~36% 更新;零交易风险(判定侧仪表,
+  编排不消费 reversal);实施后研究侧 B1-B3 验收(脚本已备 ho004_acceptance.py);
+  **实施须独立评审**;B4 消费方迁移(S-003 DT 背景 {range,reversal}→{range})
+  随交付登记
 - 2026-10-13 晚清单核对:上述补勾各项均见于当日叙述段,原清单漏勾,本次补记;
   round-7 增量(引擎 1d/看门狗/文案)见 16:2x 段。**门状态:影子跑中(N=5=10-14~10-20),
   10-21 09:30 差异清单提交用户确认后进 Phase B**
