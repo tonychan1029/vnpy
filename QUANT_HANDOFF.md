@@ -104,14 +104,13 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - 已交付信号基线未重跑(v0 读数保护 MTG004 结论);正式验收=研究侧重跑
   rs012_confusion.py(经 tag_adapter)与 regime_retest.py
 
-## 2026-10-13 第四轮评审 FAIL → 整改完成 → 第五轮复审中
+## 2026-10-13 第四轮 FAIL → 整改 → 第五轮 FAIL(5B-1) → 修复 → **第六轮 PASS** → 影子重启
 - **第四轮独立评审判定 FAIL**(1 BLOCKER+4 MAJOR+7 MINOR+历史 OPEN 1;报告
   reviews_v2/phase_a_round4_review.md;历史 16 项 15 CLOSED——骨架与安全设计扎实,
   FAIL 限于本轮影子 boot 编排与组合基座失败路径):4B-1 影子只喂首实例(BLOCKER,
   CU0+ 框架侧零记录,N=5 证据失效)/4B-2 类级 sink 重绑定错标/4B-3 对比器退化为
   状态-vs-事件重灌/4B-4 flush 重试键型混淆+水位先行/4B-5 trend_pullback tf 接线
-  死代码;**影子 quant-shadow 已按评审建议暂停**(10-20 差异清单在现缺陷下不作
-  Phase B 门禁)
+  死代码;**影子 quant-shadow 已按评审建议暂停**
 - **整改完成**(ead7e91,全量验证绿:selfcheck 80/80、网关三脚本、回归 12 例):
   4B-1 逐实例喂条/4B-2 sink 实例级/4B-3 对比器事件化+有界(每 close 节点一份
   报告,4 项未归一化节点差 meta 标注)/4B-4 重试键=close_key+水位 commit-on-flush
@@ -123,7 +122,12 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   查找落 None → 首启陈旧评估未消+水位持久化静默丢失(较 165315c 回归);
   **已修**(f0d75c3:两处 type(self)→self + 5N-1 告警实例优先 + 5N-2 死导入
   + 5N-3 boot 形态自检用例×2),全量验证绿(selfcheck 82/82、网关、回归 11),
-  **106 已同步**(远端 selfcheck 82/82);**第六轮复审已派发**(范围=5B-1 核验),
+  **106 已同步**(远端 selfcheck 82/82)
+- **第六轮复审 PASS**(2026-10-13;报告 reviews_v2/phase_a_round6_review.md:
+  5B-1 静态/语义/构造性三层核验 6/6,5N-1/2/3 落实,全量绿,HEAD=f0d75c3 纯净);
+  **影子窗口已重启**(quant-shadow active,2 实例,boot 水位 13:12 已应用),
+  **N=5 重计,起点=10-13 13:12**;水位文件将在首个成功 flush 节点后落盘
+  (commit-on-flush 语义);10-20 差异清单提醒仍有效;**第六轮复审已派发**(范围=5B-1 核验),
   PASS 后重启影子窗口(N=5 重计)
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
