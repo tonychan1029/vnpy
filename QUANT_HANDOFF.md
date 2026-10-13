@@ -200,17 +200,20 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
-- [ ] #10-12 收尾: tf_selector 接线两模型+pool_config 键(poolscan 周二冻结,部署后接入)
+- [x] #10-12 收尾: tf_selector 接线两模型+pool_config 键(10-13 上午完成;poolscan 新版已部署 106)
 - [x] #13 余项: 旧 id 排空查询按 legacy 精确形状(identity.is_legacy_instruction_id/select_legacy_ids)、文档统一 replace_scanner_entries 命名
-- [ ] #1 具体策略类(portfolio 基类装包后对齐源码);[x] 壳生命周期离线测试(桩 vnpy BarGenerator)+set_bindings 修复
-- [x] #2 trend_pullback 提取 evaluate_product(poolscan.py,行为保持,staging 随下一窗口)
-- [ ] #3 InstructionSink 接线 boot(模块与校验已有;接线随 #6,依赖 #7)
-- [ ] #4 影子对比器接线(ShadowComparator 已写;接线随 #6,依赖 #7)
+- [x] #1 具体策略类(718d7db:framework_base+两具体类,与 template 1.3.0 逐条对齐);[x] 壳生命周期离线测试(桩 vnpy BarGenerator)+set_bindings 修复
+- [x] #2 trend_pullback 提取 evaluate_product(poolscan.py,行为保持,已部署 106)
+- [x] #3 InstructionSink 接线 boot(PhaseBError 代码层门禁,评审 PASS 前不可开)
+- [x] #4 影子对比器接线(4B-3 事件化 ShadowNodeRecorder,每 close 节点一份报告)
 - [x] #5 universe→settings 生成器(strategy_framework/universe.py,解析失败告警+跳过)
-- [ ] #6 boot 集成(MainEngine+portfolio 引擎无头;依赖 #7 装包)
-- [ ] #7 venv 安装 vnpy_portfoliostrategy(窗口内 pip 走代理,版本对齐 4.4.0)
-- [ ] #8 旧 id 指令排空执行(legacy 精确形状过滤)
+- [x] #6 boot 集成(framework_boot 影子跑;quant-shadow.service systemd 常驻)
+- [x] #7 venv 安装 vnpy_portfoliostrategy 1.3.0(本地+106)
+- [ ] #8 旧 id 指令排空执行(脚本就绪 drain_legacy_instructions.py,plan 默认/apply 双门禁;**执行待用户令**)
 - [ ] #9 通知模板(引擎侧,Phase C)
+- 2026-10-13 晚清单核对:上述补勾各项均见于当日叙述段,原清单漏勾,本次补记;
+  round-7 增量(引擎 1d/看门狗/文案)见 16:2x 段。**门状态:影子跑中(N=5=10-14~10-20),
+  10-21 09:30 差异清单提交用户确认后进 Phase B**
 - **门**: Phase A 完成自检→第四轮独立评审→PASS→影子跑(ShadowSink,≥N 交易日)→差异清单用户确认→Phase B 切换(旧 runner .bak+cron 回滚)→质量跟踪(胜率/RR 达成/出场复盘)→二期择时归化→退役旧池引擎
 
 ## 验证速查
