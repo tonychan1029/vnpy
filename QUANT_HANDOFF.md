@@ -311,6 +311,14 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   ⚠️ 本胶囊正被研究侧会话并行编辑——**写后立即 commit**;其新一批产出
   (RS017/019/020/021、HO006、DEC006、MTG006 等)尚未入库,归其会话收尾。
 
+## 2026-10-15 00:3x 分频道协同切换完成
+- cloudwebhook Android 多主题订阅实施完毕（用户侧确认）；上游协同已执行：
+  gateway_config `topic_timing: pa-signal`（备份 .bak_topicswitch_20261015）+
+  quant-webhook 重启（首次漏 sudo 被拒已补）+ timing 注入 e2e 推送 ✓。
+  **当前 topic 路由：selection/rollover→pa-latest-monitor；timing→pa-signal**。
+- 待用户确认：App ⚡ 渠道收到 00:34 的 TEST（00:33 那条走的是切换前旧主题）。
+- Worker 密钥轮换仍待用户面板操作（App 无鉴权不受影响，纯服务端三处）。
+
 ## 2026-10-14 15:10 关键节点复核:全过 ✅
 - **Y0 日线波段首次提交成功**:15:00:40 submitted=1 skipped=0(引擎 1d 生效后
   首战);无 bad_selection_timeframe;引擎已接受并完成 y0.DCE/60m warmup
