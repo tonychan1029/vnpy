@@ -110,17 +110,23 @@ def context_tag_v0(closes: list[float], ema_history: list[float], i: int, atr: f
 
 
 class ContextTaggerV1:
-    """判定侧 context v1（HO003 A1/A2/A3；有状态：breakout 双向迟滞）。
+    """判定侧 context v2（HO004-A1/A2；有状态：breakout 双向迟滞）。
 
     - A3 迟滞：raw_breakout 连续 2 根才置位；连续 2 根非 raw 才复位
       （与 S-004 armed 迟滞同构；治"58% breakout 只存活 1 根"的标签闪烁）
     - A1 range 两层：宽口径 range（|close−EMA| ≤ 0.5×ATR 且 40 根区间宽
       ≤ 6×ATR，阶段判定用）+ strict_range 子态（保留 v0 条件 0.25×ATR/4×ATR，
       单独导出供 RER 类边缘反转作闸门）
-    - A2 reversal：斜率与 (close−EMA20) 异号 **且** 最近 5 根内出现 ≥1×ATR
-      的反向位移（已实现结构证据，避免把所有斜率拐点标成 reversal）
-    优先级：breakout(迟滞态) > range(宽) > trend_strong > trend_channel >
-    reversal > trend_channel(中性兜底)。strict_range 独立输出不计入主标签。
+    - A2 reversal v2（HO004，R-C 已实现结构破坏，取代 v0/v1 旧规则——旧规则
+      LR 0.82 反向信息已退役）：
+        1) 先行腿：近 20 根 close 极值（含当前根）相对其前溯 40 根窗内
+           基点的幅度 ≥ 2.0×ATR（上行/下行对称取或）；
+        2) 已实现反向位移：当前 close 自该极值回撤 ≥ 1.0×ATR；
+        3) 回撤比例：回撤 / 先行腿 ≥ 0.5。
+      参考实现=strategy_research/code/analysis/context_v2_diagnostic.py rev_C
+      （LEG_K=2.0/CTRP_K=1.0/RETR_K=0.5），B1 验收 runner 按此对齐。
+    优先级（HO004-A2 占位）：breakout(迟滞态) > range(宽) > reversal(v2) >
+    trend_strong > trend_channel(中性兜底)。strict_range 独立输出不计入主标签。
     """
 
     def __init__(self, enter_streak: int = 2, exit_streak: int = 2) -> None:
@@ -164,15 +170,30 @@ class ContextTaggerV1:
             return "breakout", strict
         if abs(diff) <= 0.5 * atr and rng_width <= 6 * atr:
             return "range", strict
+        # ── HO004-A2：reversal v2（R-C），占位于 trend 分支之前 ──
+        # 下行反转（先升后跌）：近 20 根最高 close 为腿端，腿基=其前溯 40 根窗内最低
+        seg = closes[i - 19: i + 1]
+        tH = max(range(len(seg)), key=lambda j: seg[j])
+        H20 = seg[tH]
+        base_up = min(closes[max(0, i - 40): i - 19 + tH + 1])
+        leg_up = H20 - base_up
+        # 上行反转（先跌后涨）：近 20 根最低 close 为腿端，腿基=其前溯 40 根窗内最高
+        tL = min(range(len(seg)), key=lambda j: seg[j])
+        L20 = seg[tL]
+        base_dn = max(closes[max(0, i - 40): i - 19 + tL + 1])
+        leg_dn = base_dn - L20
+        if leg_up >= 2.0 * atr or leg_dn >= 2.0 * atr:
+            ret_up = H20 - close
+            ret_dn = close - L20
+            c_ret = ret_up >= 1.0 * atr or ret_dn >= 1.0 * atr
+            f_half = (
+                (leg_up > 0 and ret_up / leg_up >= 0.5)
+                or (leg_dn > 0 and ret_dn / leg_dn >= 0.5)
+            )
+            if c_ret and f_half:
+                return "reversal", strict
         if slope * diff > 0:
             return ("trend_strong" if abs(slope) >= 0.25 * atr else "trend_channel"), strict
-        window = closes[i - 4: i + 1]
-        if slope > 0:
-            reverse_exc = max(window) - window[-1]
-        else:
-            reverse_exc = window[-1] - min(window)
-        if slope * diff < 0 and reverse_exc >= 1.0 * atr:
-            return "reversal", strict
         return "trend_channel", strict
 
 
@@ -572,9 +593,13 @@ def write_report(all_rows: list[dict], all_ctx: list[dict], prods: list[str],
         f.write("\n".join(lines))
 
 
-def _run_export_context(prods: list[str]) -> None:
-    """HO003 交付：context v1 序列导出 + 验收自检（不动已交付的信号基线）。"""
-    ctx_dir = os.path.join(OUT_DIR, "context_tags")
+def _run_export_context(prods: list[str], version: int = 1) -> None:
+    """HO003/HO004 交付：context 序列导出 + 验收自检（不动已交付的信号基线）。
+
+    version=1 → context_tags/（v1 语义，已交付对照）；version=2 → context_tags_v2/
+    （HO004-A1/A2 语义：旧 reversal 退役、R-C v2 实装、占位于 trend 前）。
+    """
+    ctx_dir = os.path.join(OUT_DIR, f"context_tags_v{version}")
     os.makedirs(ctx_dir, exist_ok=True)
     all_rows: list[dict] = []
     for prod in prods:
@@ -588,8 +613,11 @@ def _run_export_context(prods: list[str]) -> None:
                 "datetime", "symbol", "context_tag", "strict_range"])
             w.writeheader()
             w.writerows(rows)
-        print(f"[ctx] {prod}: bars={stats['bars']} rows={stats['rows']}")
-    _write_context_acceptance(all_rows)
+        print(f"[ctx v{version}] {prod}: bars={stats['bars']} rows={stats['rows']}")
+    if version == 2:
+        _write_context_acceptance_v2(all_rows)
+    else:
+        _write_context_acceptance(all_rows)
 
 
 def _write_context_acceptance(rows: list[dict]) -> None:
@@ -631,6 +659,56 @@ def _write_context_acceptance(rows: list[dict]) -> None:
     print(f"[done] -> {path}")
 
 
+def _write_context_acceptance_v2(rows: list[dict]) -> None:
+    """HO004-A3 导出自检（v2 语义）：reversal(R-C) 占比合理区间 ~25-45%
+    （RS015 实测 36.2%；v1 旧语义仅 ~6%）；breakout 中位持续期 ≥5 根不变；
+    range 占比 ≥8% 不变（B3 非退化护栏的结构面）。"""
+    n = len(rows) or 1
+    dist = Counter(r["context_tag"] for r in rows)
+    strict_share = sum(int(r.get("strict_range") or 0) for r in rows) / n
+
+    def run_lengths(tag: str) -> list[int]:
+        out: list[int] = []
+        cur = 0
+        for r in rows:
+            if r["context_tag"] == tag:
+                cur += 1
+            elif cur:
+                out.append(cur)
+                cur = 0
+        if cur:
+            out.append(cur)
+        return out
+
+    bo = sorted(run_lengths("breakout"))
+    bo_median = bo[len(bo) // 2] if bo else 0
+    range_share = dist.get("range", 0) / n
+    rev_share = dist.get("reversal", 0) / n
+    ok = (
+        range_share >= 0.08
+        and bo_median >= 5
+        and 0.25 <= rev_share <= 0.45
+    )
+    lines = [
+        "# context v2 导出自检（HO004-A3 预检；正式验收=研究侧 ho004_acceptance.py）",
+        "",
+        "- reversal 词表（HO004-A2 R-C）：先行腿≥2.0×ATR（近 20 根极值 vs 前溯 40 根基点）"
+        "∧ 反向位移≥1.0×ATR ∧ 回撤比例≥0.5；占位于 trend 分支之前。",
+        f"- 总行数：{len(rows)}（{','.join(sorted({r['symbol'] for r in rows}))}）",
+        f"- 分布：{dict(sorted(dist.items()))}",
+        f"- range 触发占比：{range_share * 100:.1f}%（护栏 ≥8%）",
+        f"- reversal 触发占比：{rev_share * 100:.1f}%（合理区间 25-45%，RS015 实测 36.2%）",
+        f"- breakout 块数：{len(bo)}，中位持续期：{bo_median} 根（护栏 ≥5）",
+        f"- strict_range 占比：{strict_share * 100:.1f}%",
+        f"- 预检：{'PASS' if ok else 'CHECK_NEEDED'}",
+    ]
+    path = os.path.join(OUT_DIR, "context_v2_acceptance.md")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    print(f"[done] -> {path}")
+
+
 def _run_resummarize() -> None:
     """HO003 B：从既有 signals_detail.csv 重建汇总（by_year 升至全档位）。"""
     src = os.path.join(OUT_DIR, "signals_detail.csv")
@@ -659,10 +737,14 @@ def _run_resummarize() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="HO001 baseline backtest (offline)")
-    ap.add_argument("--mode", choices=["full", "export-context", "resummarize"],
+    ap.add_argument("--mode",
+                    choices=["full", "export-context", "export-context-v2",
+                             "resummarize"],
                     default="full",
                     help="full=全量回测；export-context=HO003 context v1 序列导出"
-                         "（不重跑信号）；resummarize=HO003 B 由明细重建汇总")
+                         "（不重跑信号）；export-context-v2=HO004 context v2 导出"
+                         "（reversal 退役/实装，落 context_tags_v2/）；"
+                         "resummarize=HO003 B 由明细重建汇总")
     ap.add_argument("--products", default=",".join(PRODUCTS),
                     help="逗号分隔品种代码，如 RB,CU")
     ap.add_argument("--horizon", type=int, default=HORIZON)
@@ -670,7 +752,10 @@ def main() -> None:
 
     prods = [p.strip().upper() for p in args.products.split(",") if p.strip()]
     if args.mode == "export-context":
-        _run_export_context(prods)
+        _run_export_context(prods, version=1)
+        return
+    if args.mode == "export-context-v2":
+        _run_export_context(prods, version=2)
         return
     if args.mode == "resummarize":
         _run_resummarize()

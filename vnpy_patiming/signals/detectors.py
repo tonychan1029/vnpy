@@ -442,7 +442,9 @@ class DoubleTopBottomDetector(BaseDetector):
 
     def detect(self, ctx: SignalContext) -> list[AlertDraft]:
         out: list[AlertDraft] = []
-        if ctx.context_tag not in ("range", "reversal"):
+        # HO004-B4：背景 {range, reversal} → {range}（v2 reversal 语义=往返中段，
+        # ≠区间环境；旧 reversal 窗 DB 12.5%/DT 12.1% 事件暴露已由研究侧量化）
+        if ctx.context_tag not in ("range",):
             return out
         atr = ctx.atr
         tol = ctx.cfg["dbl_tol_atr"] * atr
