@@ -273,11 +273,22 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   已上报**:RS018 审计前提"任务单 symbol=具体合约"与 as-built 不符(生产全链
   连续符号 rb0.SHFE,数据源自动跟随换月),P1 粘性在 monitor 类(生产 selection
   路径不实例化)——一致性检查/REVOKE 部分**暂缓**待研究侧确认。
-- **Round-9 独立评审进行中**(reviews_v2/phase_a_round9_review.md 骨架已建)。
-- **部署就绪待评审 PASS**:一次性 cron 10-15 04:05(deploy/ho004_ho005_deploy_
-  20261015.sh,四文件/三服务重启,md5 锁定,PID 级验证);B4 生效后生产 DT/DB
-  在 reversal 窗少 ~12% 事件(研究侧量化批准);baseline_backtest 为离线工具
-  不需重启。
+- **Round-9 独立评审 PASS-WITH-FINDINGS（有条件放行 10-15 04:00-05:15）**
+  (reviews_v2/phase_a_round9_review.md 已归档):条件四件+MAJ-1/MAJ-3 全部闭环——
+  ①stage 四文件 md5=脚本常量逐位一致(59a559fd/d7b89eea/648b6099/5a723c3d,
+  poolscan=Windows 工作树 CRLF 原件,MAJ-2);②改前版 baseline_backtest.py
+  (md5 690994db)已预置 /opt/aiprj/vnpy_patiming/(备份/回滚可用);③脚本 0755+
+  cron 0644 已装;④MAJ-1 节流跨日清零已修+MAJ-3 runner 检查 PID 化已修
+  (md5 同步 648b6099+重跑)。试跑 NO-OP 验证过(cron 保留)。
+- **Round-9 发现账本(MINOR×6,不阻塞)**:R-C f_half 角点偏差(工程比参考宽松,
+  可构造反例);HO005-A3 旧合约预警抑制未实现未记录;rollover payload 缺
+  affected_instructions;rollover topic 回落 base topic;主力判定无防抖滞回;
+  窗口闸门仅认 hour==04 无干跑模式。→ 记入下次迭代清单。
+- **部署内容(10-15 04:05)**:HO004(tagger v2+B4 DT/DB 背景收缩——**引擎重启后
+  生产 DT/DB 在 reversal 窗少 ~12% 事件,研究侧量化批准**)+HO005 阶段 0+1
+  (粘性修复+换月事件+contract_code);核验 journalctl -t ho004-ho005-deploy。
+- **前提问题(待研究侧答复,不阻塞本批)**:RS018 审计前提"任务单 symbol=具体
+  合约"与 as-built 连续符号链不符→一致性检查/REVOKE 暂缓(见上轮裁决)。
 
 ## 2026-10-14 09:30 晨检+10:26 引擎重跑(1d 已生效)
 - **晨检**:通知出口 04:15 部署 DEPLOY_OK(bridge 正常,topic_timing=pa-latest-monitor
