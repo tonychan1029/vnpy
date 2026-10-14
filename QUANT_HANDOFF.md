@@ -317,7 +317,15 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   quant-webhook 重启（首次漏 sudo 被拒已补）+ timing 注入 e2e 推送 ✓。
   **当前 topic 路由：selection/rollover→pa-latest-monitor；timing→pa-signal**。
 - 待用户确认：App ⚡ 渠道收到 00:34 的 TEST（00:33 那条走的是切换前旧主题）。
-- Worker 密钥轮换仍待用户面板操作（App 无鉴权不受影响，纯服务端三处）。
+- **轮换终态(00:3x-01:1x 与 cloudwebhook 会话对齐)**:Worker 线上仍=旧值
+  (双会话探针一致:新值 401/旧值 400 过认证)——**等待用户在 Cloudflare 面板
+  保存 WEBHOOK_SECRET=新值**(唯一剩余动作,面板属用户权限);保存后
+  cloudwebhook 侧自动:鉴权探针→R2 上传 **v1.3.0 APK**→验证 /apk/latest。
+  我侧网关 config 已=新值(勿再动);Hermes 三处=新值 ✓。
+- **⚠️ 过渡期行为(10-15 04:15 起)**:timing 消息 topic=pa-signal——**App
+  v1.2.3 单主题订阅收不到**(微信腿正常);App 升级 v1.3.0(多主题)后方可
+  见 ⚡ 渠道。双通道 A1-A4 验收前置=手机升 v1.3.0(cloudwebhook 会话对齐)。
+- 明晨 09:30 提醒已挂:HO004+HO005 部署核验+轮换状态+影子第 2 天。
 
 ## 2026-10-15 00:3x-01:0x WEBHOOK_SECRET 轮换实战(中间态,服务已恢复)
 - **事实链**:用户在**本机**更新了 CUSTOM_WEBHOOK_SECRET(未部署到 Cloudflare
