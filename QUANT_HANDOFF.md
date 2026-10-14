@@ -257,6 +257,28 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   二选一)→106 gateway_config 两处→Hermes config platform+weixin+ops 三处
   (同为旧值,须同批切)→TEST 端到端;新值不入任何 GitHub 文件。
 
+## 2026-10-14 午后:HO004 实施 + HO005 阶段 0+1 安全子集(评审中)
+- **HO004 已实施**(vnpy a269f8e0+bbba8078):ContextTaggerV1 A1 退役 v1
+  reversal/A2 R-C v2 实装(占位 trend 前,参考=研究侧 rev_C 逐行对齐)/
+  B4 DT/DB 背景 {range,reversal}→{range}(detectors :445 一处,W_BOTTOM 默认关
+  不动)/export-context-v2 模式+自检(占比区间 25-45%);测试 4 passed+全套件
+  80 passed(2 环境失败存量);两处测试语义随批更新(B4 背景 range 化、
+  validity 用例按守卫移除新语义+新增真负例)。
+- **HO005 阶段 0+1 安全子集已实施**(quant-repo 3d3ded7+bc2752e):A1 粘性修复
+  (resolved 每键每日 ≥2 次重检,检出变更→重订阅+换月事件)/B1 contract_code/
+  A2 换月事件走统一队列(网关新增 🔄 【主力换月】渲染分支)/网关 category 三态。
+- **两项工程裁决(已记录 round-9 骨架)**:①B2 偏差=rollover_policy 不入 PA
+  指令(引擎 _clean 丢未知键,入 content_hash 需改引擎,违反 HO005 边界 E)→
+  expire 语义由 runner 侧 strategy_selection_revoke 实现;②**HO005 前提问题
+  已上报**:RS018 审计前提"任务单 symbol=具体合约"与 as-built 不符(生产全链
+  连续符号 rb0.SHFE,数据源自动跟随换月),P1 粘性在 monitor 类(生产 selection
+  路径不实例化)——一致性检查/REVOKE 部分**暂缓**待研究侧确认。
+- **Round-9 独立评审进行中**(reviews_v2/phase_a_round9_review.md 骨架已建)。
+- **部署就绪待评审 PASS**:一次性 cron 10-15 04:05(deploy/ho004_ho005_deploy_
+  20261015.sh,四文件/三服务重启,md5 锁定,PID 级验证);B4 生效后生产 DT/DB
+  在 reversal 窗少 ~12% 事件(研究侧量化批准);baseline_backtest 为离线工具
+  不需重启。
+
 ## 2026-10-14 09:30 晨检+10:26 引擎重跑(1d 已生效)
 - **晨检**:通知出口 04:15 部署 DEPLOY_OK(bridge 正常,topic_timing=pa-latest-monitor
   已插);影子夜盘 136 次 poll fed;**晚盘首触成功**(01:00:08+02:30:00,10-13 修复
