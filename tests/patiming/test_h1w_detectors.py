@@ -233,7 +233,7 @@ def _wm_task(enable_w_m: bool):
                           emit_alert=lambda *a, **k: None, next_alert_id=next_id)
     task = MonitoringTask(eng, "X", "1m", "1m")
     task.contributions[("s", "i")] = {
-        "status": "ACTIVE", "direction": "both", "context_tag": "reversal",
+        "status": "ACTIVE", "direction": "both", "context_tag": "range",
         "signal_categories": {"w_m", "double_top_bottom"}, "key_levels": {},
         "source": "s", "instruction_id": "i", "content_hash": "h",
     }

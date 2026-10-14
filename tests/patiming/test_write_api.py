@@ -88,13 +88,20 @@ def test_quota_per_source(tmp_path, clock):
 
 def test_validity_window_validation(tmp_path, clock):
     eng = PatimingEngine(str(tmp_path / "db.sqlite"), clock=clock)
+    # HO004 后 sel>exec 合法（selection_gt_exec 守卫随 1d 支持移除）：
     r = eng.submit_instruction("strategy:demo", {
         "instruction_id": "INS-1", "producer_revision": 1, "symbol": "rb2501.SHFE",
         "selection_timeframe": "60m", "exec_timeframe": "1m",
         "reason_code": "BREAKOUT_WATCH", "reason_note": "x"})
-    assert r["ok"] and r["status"] == "INVALID"
+    assert r["ok"] and r["status"] != "INVALID"
     r2 = eng.submit_instruction("strategy:demo", {
         "instruction_id": "INS-2", "producer_revision": 1, "symbol": "rb2501.SHFE",
         "selection_timeframe": "5m", "exec_timeframe": "1m",
         "reason_code": "BREAKOUT_WATCH", "reason_note": "x"})
-    assert r2["ok"] and r2["status"] == "INVALID"
+    assert r2["ok"] and r2["status"] != "INVALID"
+    # 最短有效期护栏仍在：valid_bars×sel_m < 2×exec_m → INVALID
+    r3 = eng.submit_instruction("strategy:demo", {
+        "instruction_id": "INS-3", "producer_revision": 1, "symbol": "rb2501.SHFE",
+        "selection_timeframe": "1m", "exec_timeframe": "60m", "valid_bars": 1,
+        "reason_code": "BREAKOUT_WATCH", "reason_note": "too short"})
+    assert r3["ok"] and r3["status"] == "INVALID"
