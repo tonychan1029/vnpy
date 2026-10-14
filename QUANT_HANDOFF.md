@@ -295,11 +295,21 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   可构造反例);HO005-A3 旧合约预警抑制未实现未记录;rollover payload 缺
   affected_instructions;rollover topic 回落 base topic;主力判定无防抖滞回;
   窗口闸门仅认 hour==04 无干跑模式。→ 记入下次迭代清单。
-- **部署内容(10-15 04:05)**:HO004(tagger v2+B4 DT/DB 背景收缩——**引擎重启后
-  生产 DT/DB 在 reversal 窗少 ~12% 事件,研究侧量化批准**)+HO005 阶段 0+1
-  (粘性修复+换月事件+contract_code);核验 journalctl -t ho004-ho005-deploy。
+- **✅ 部署已执行(10-14 22:2x,用户授权 --force-now 窗口外)**:全链 DEPLOY_OK
+  (stage→安装→PID 级重启验证→selfcheck→preflight 6/6);四文件盘上 md5 全中
+  (59a559fd/d7b89eea/648b6099/5a723c3d);五服务 active;cron 已消费;脚本已加
+  --force-now(跳日期+小时闸门,其余门禁全保留)并入库。部署后冒烟:patiming
+  --test → 双通道到达 ✓。**B4 即效影响(已生效)**:生产 DT/DB 在 reversal 窗
+  少 ~12% 事件(研究侧量化批准)。
+- **🔴 A3 导出已交付+一项观察**:`vnpy_patiming/output/baseline/context_tags_v2/`
+  六品种 CSV(122,546 行;按惯例不入库);自检 reversal 占比 **51.7%**(全 K 分母)
+  高于研究侧网格口径 36.2%——分母不同(GT 抽样网格 vs 全 K)+EMA/ATR 实现差异;
+  **最终判定=研究侧 B1/B2 验收**(预注册:B2 失败→回滚 A2 保留 A1);自检状态
+  CHECK_NEEDED 如实保留待研究侧判读。
 - **前提问题(待研究侧答复,不阻塞本批)**:RS018 审计前提"任务单 symbol=具体
   合约"与 as-built 连续符号链不符→一致性检查/REVOKE 暂缓(见上轮裁决)。
+  ⚠️ 本胶囊正被研究侧会话并行编辑——**写后立即 commit**;其新一批产出
+  (RS017/019/020/021、HO006、DEC006、MTG006 等)尚未入库,归其会话收尾。
 
 ## 2026-10-14 15:10 关键节点复核:全过 ✅
 - **Y0 日线波段首次提交成功**:15:00:40 submitted=1 skipped=0(引擎 1d 生效后
