@@ -319,6 +319,24 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - 待用户确认：App ⚡ 渠道收到 00:34 的 TEST（00:33 那条走的是切换前旧主题）。
 - Worker 密钥轮换仍待用户面板操作（App 无鉴权不受影响，纯服务端三处）。
 
+## 2026-10-15 00:3x-01:0x WEBHOOK_SECRET 轮换实战(中间态,服务已恢复)
+- **事实链**:用户在**本机**更新了 CUSTOM_WEBHOOK_SECRET(未部署到 Cloudflare
+  线上)→ Worker 线上仍=旧值(探测实证:旧密钥过认证[400=探针 body 瑕疵非鉴权],
+  新密钥 401 拒)→ 我按"已更新"理解把网关 custom+Hermes 三处切新 → 双腿 401
+  (custom 对 Worker 不匹配;hermes 对网关不匹配[网关尚未重启时]/后自洽)→
+  **已回滚网关 custom 两处到旧值并重启,服务恢复**(post-restart 0 异常;
+  直注 Worker 2xx + App 收到 TEST2)。
+- **当前混合态(各自自洽,无影响)**:hermes 家族(gateway 腿 secret+Hermes
+  config 三处)=**新值**已自洽;custom 家族(网关 2 处+Worker 线上)=**旧值**
+  自洽;App 收推送无鉴权不受任何影响;local.properties 新值=死配置(app/src
+  零引用)。
+- **收尾(一步,待用户)**:用户在 Cloudflare 面板把 Worker 的
+  **WEBHOOK_SECRET**(index.js 读取的 env 名;即其所谓 CUSTOM_WEBHOOK_SECRET)
+  更新为新值并生效 → 回我一声 → 我 sed 网关 custom 两处回新值+重启 →
+  TEST 端到端 → 轮换闭环。
+- 教训:轮换类操作"已更新"必须问清"更新到哪一层"(本机文件/线上 env);
+  探针先于切换(用双值探测定线上一态,再动服务端)。
+
 ## 2026-10-14 15:10 关键节点复核:全过 ✅
 - **Y0 日线波段首次提交成功**:15:00:40 submitted=1 skipped=0(引擎 1d 生效后
   首战);无 bad_selection_timeframe;引擎已接受并完成 y0.DCE/60m warmup
