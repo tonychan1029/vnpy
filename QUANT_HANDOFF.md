@@ -138,6 +138,17 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   (selection 三价须 支撑<挂单<压力,失配拦截+日志计数;价位缺失放行)+排版改
   **方向语义标注**(short=目标(下)/风险(上),long=目标(上)/风险(下));三网关回归过,
   已部署 106(c81696c),15:05 起新排版+双通道+闸门三合一生效
+- **Day-2 午后里程碑(10-14 15:0x 全部 ✅)**:
+  (1) **影子 1d 首评端到端打通**——14:59 两侧节点报告(RB0/CU0)+水位成功落盘
+  {"RB0.SHFE":"2026-10-14T15:00:00"}(4B-9/4B-4/5B-1 修复链生产实证);框架侧
+  entries_f=0 vs legacy trend_pullback=1(Y0)——差异=覆盖范围(影子仅 RB0/CU0,
+  legacy 全市场扫描),非模型分歧;框架 evaluate 走 CHOP_RANGING 无方向跳过与
+  legacy 扫描全跳过同因
+  (2) **日线波段首跑 ✅**——15:00 节点 Y0 入选,submitted=1;生产已在运行
+  重构版 poolscan(evaluate_product 行号实证)
+  (3) 15:05 双通道未触发=**当日 market_pullback 扫描 0 入选**(9 品种全
+  CHOP_RANGING 跳过,0 入选不推送属设计)——新排版/双通道/闸门的实战首秀
+  待首个有入选的扫描日;--test 已验证双腿认证
 - **Day-2 晨检(10-14 09:31)**:三服务 active;**晚盘补跑首次真实触发 ✅✅**——实测
   01:00:08 与 02:30:00 两次 RB0 late-night close detected(两层缺陷修复实战验证);
   runner errors=8 条全为 06:01 网络抖动自愈;**影子"零评估"澄清(非 bug)**:
