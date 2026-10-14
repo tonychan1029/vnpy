@@ -257,6 +257,22 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   二选一)→106 gateway_config 两处→Hermes config platform+weixin+ops 三处
   (同为旧值,须同批切)→TEST 端到端;新值不入任何 GitHub 文件。
 
+## 2026-10-14 09:30 晨检+10:26 引擎重跑(1d 已生效)
+- **晨检**:通知出口 04:15 部署 DEPLOY_OK(bridge 正常,topic_timing=pa-latest-monitor
+  已插);影子夜盘 136 次 poll fed;**晚盘首触成功**(01:00:08+02:30:00,10-13 修复
+  首次实战通过);看门狗零事件;HO002 零误开;watermarks 未现=符合预期。
+- **❌→✅ 04:05 引擎部署假阳性回滚→10:26 用户批准重跑成功**:新代码启动本已
+  正常,脚本 `grep Traceback` 命中**旧进程关闭噪音**(uvicorn SIGTERM 必打
+  KeyboardInterrupt)误判回滚;验证已修=只查新进程 PID+正向断言"Starting MCP
+  server",引擎脚本加 `--force-now`(仅跳小时闸门);**10:26 --force-now 重跑
+  DEPLOY_OK**(preflight 6/6,盘上 md5=b230dd07/636cb3d7,运行态 1d=1440 实证,
+  守卫仅存注释 :390)。**今日 15:00 Y0 应首次提交成功**(15:10 提醒复核)。
+- **并行会话核查**:其"周四 04:05 引擎部署任务"经全系统核查(cron/crontab/
+  hermes cron.db/systemd timers)**不存在可执行体**=其会话内提醒(跨会话不执行),
+  本批重跑无冲突;其 04:07 runner 重启/04:15 hermes profile 密钥修复无文件冲突
+  (runner/poolscan md5 与已知一致)。⚠️ 本文件 09:35 版曾被并行会话保存覆盖
+  (晨检段丢失,本次重加)——**并发编辑胶囊须写后立即 commit**。
+
 ## Phase A 待办(设计稿 §3 行 1-13;完成后再送第四轮独立评审)
 - [x] #10 15m 桶语义 / #11 1d 触发时效(60m 链路 15:00) / #12 tf_selector 模块+单测 / #13 部分(全败不推进/告警限频/规则预校验)
 - [x] #10-12 收尾: tf_selector 接线两模型+pool_config 键(10-13 上午完成;poolscan 新版已部署 106)
