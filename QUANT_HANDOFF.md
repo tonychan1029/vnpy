@@ -289,5 +289,13 @@ PYTHONPATH=/opt/aiprj/selection:/opt/aiprj /opt/aiprj/venv/bin/python /opt/aiprj
 ```
 本地自检: `$env:SEL_SELFCHECK_STUBS='C:\Users\16863\AppData\Local\Temp\sel_stubs'; & '<捆绑python>' D:\AIprj\quant-repo\tests\selfcheck_selection_gaps.py`(57/57;**⚠️ 桩目录在 %TEMP%,可能被清理,丢失则按胶囊重建 4 个桩文件**)
 
+## 附录:10-13 晚~10-14 晨会话增补(部署核验会话)
+- **周二 04:05 自动部署实核**: DEPLOY_OK 全链(stage verified→installed→restarted→selfcheck 28/28→preflight 6/6→hermes 重启),md5 三件/DEPLOYED 标记/双备份全中
+- **晚盘补扫首次真实触发** ✅: 10-14 01:00:08 与 02:30:00 双节点 detected+processed(核心修复实盘生效);日线波段首跑 15:00:37 Y0 入选(entries=1)但提交被引擎拒 bad_selection_timeframe——根因=服务器 /opt/aiprj/vnpy_patiming/config.py 缺 1d:1440(3b2d72dc 已提交未部署);**周四 04:05 窗口任务已挂**(守卫式部署+引擎/runner 重启+1440 验证,若已被并行会话部署则自动跳过)
+- **hermes profile 密钥修复完成**(10-14 04:15): 8 个 profile .env 全部补 GLM/DEEPSEEK×3(值未落日志),重启 active;04:15 后 empty/unset=0。根因=hermes profile 作用域密钥隔离(secret_scope.get_secret 不回退 os.environ,设计如此),/etc/environment 全局键对 profile 内读取不可见——新键入 profile .env 而非全局
+- **10-14 晨 06:01 DNS 抖动第三连**(Errno -2 Name or service not known,runner 侧,自愈);连续三日 ~06:00,建议查路由器/PPPoE/resolved
+- **09:00 桶抑制说明**: 10-14 04:07 runner 重启后首个 09:00 桶按开盘桶抑制设计跳过,当日首个评估节点=10:00(预期行为,非缺陷)
+- **工具**: pwsh→ssh 复杂脚本用 `base64 -d | bash` 已多轮实证可靠;远程单行内层禁用双引号
+
 ## 用户偏好/纪律(累计)
 UI 界面优先,拒绝 SSH 日常使用;升级/重启只允许凌晨 04:00-05:15 窗口;决策类先问再做;单套 vnpy 不分叉,不重复造轮子;研究回测盘后跑与生产零耦合;**实施完成必须独立评审,通过才能提交部署**;流程图/设计稿先审后做;上下文不稳时以本胶囊+todo 为准,勿凭记忆;**同一任务执行超 20 分钟仍在原地打转=立即中断出来,先解决问题再重新执行(2026-10-13 晚新增;适用于命令反复失败重试/依赖安装卡顿/等外部响应/会话内反复无进展等一切场景——先诊断根因,处置后重跑,禁止干耗)**。
