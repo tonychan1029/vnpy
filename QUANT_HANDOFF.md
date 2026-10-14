@@ -290,6 +290,18 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **前提问题(待研究侧答复,不阻塞本批)**:RS018 审计前提"任务单 symbol=具体
   合约"与 as-built 连续符号链不符→一致性检查/REVOKE 暂缓(见上轮裁决)。
 
+## 2026-10-14 15:10 关键节点复核:全过 ✅
+- **Y0 日线波段首次提交成功**:15:00:40 submitted=1 skipped=0(引擎 1d 生效后
+  首战);无 bad_selection_timeframe;引擎已接受并完成 y0.DCE/60m warmup
+  (42 bars ready)——任务单进入监控。
+- **影子首次评估+水位落盘**:shadow_20261014_1500_trend_pullback_{RB0,CU0}_1d.json
+  双实例报告 + watermarks_{RB0,CU0}_1d.json = 2026-10-14T15:00:00(commit-on-flush
+  首次实战)。**N=5 影子窗口正式开账(10-14~10-20 含今日)**。
+- **通知链路**:桥转发了引擎流事件(15:00:03)→网关 15:00:06 推送双通道;
+  今日 15:00 60m 选品 0 entries(无推送,正常)。HO002 零误开。
+- 后续:15:00 节点逐日由 runner 自动运行;10-15 04:05 HO004+HO005 窗口部署;
+  10-21 09:30 差异清单。
+
 ## 2026-10-14 09:30 晨检+10:26 引擎重跑(1d 已生效)
 - **晨检**:通知出口 04:15 部署 DEPLOY_OK(bridge 正常,topic_timing=pa-latest-monitor
   已插);影子夜盘 136 次 poll fed;**晚盘首触成功**(01:00:08+02:30:00,10-13 修复
