@@ -103,6 +103,26 @@ related: [QUANT_HANDOFF, HO005, HO006]
 - 其余：`dropped` 累计值并入三条丢弃日志（NIT-2 关闭）；放弃日志附符号清单
   （MINOR-3 关闭）；陈旧脚本测试两处已修（finding 7，其中 live 测试仍需环境才能跑）。
 
+## C4. 三轮评审遗留 MAJOR 整改（渲染毒批次卡死，存量；2026-10-15 上午）
+
+- **缺陷（round-2/3 两轮独立验证确认，基线 34bf0a7 上同样存在）**：
+  `format_signals(buffer)` 在 try 之外渲染 → 畸形 timing 事件（如 `events[].payload=null`）
+  每轮抛错：毒批次永不计数/放弃，错误 ~7 条/秒刷屏，期间后到信号全部随毒批次老化
+  （基线 HEAD 无 A3 = 永久卡死）。
+- **整改（本轮）**：渲染移入与发送同一 try，同账计数/放弃（预算内重试、超限放弃附
+  符号/累计丢弃）；毒批次重试期间到达的新信号由 `pending_new` 机制照常保护。
+  另：启动日志输出 `批次参数: attempt_budget=…`（预算钳制可见性，MINOR-2）；
+  `from typing import Any` 补齐（NIT-5，存量）；docstring 补长突发切分与暂存信号
+  新鲜度近似性说明（NIT-3/4）。
+- **回归测试**：`test_malformed_timing_event_does_not_wedge_loop`——毒事件 `payload=null`，
+  断言毒批次从未发出 + 后续 GOOD 信号正常投递；对"整改前"模拟版 **FAIL**
+  （复现 `'NoneType' object has no attribute 'get'` 刷屏、GOOD 永不投递），非空转。
+- **部署方式（窗口纪律，不再二次窗口外重启）**：守卫式 cron
+  `/etc/cron.d/ho007r2-gateway-deploy-20261016`（**2026-10-16 04:05**；date/hour/md5/flock/
+  备份/回滚全保留；04:05 不做 TEST 注入，以新增 `批次参数` 启动横幅证明新代码生效，
+  晨间清单=首个真实扫描节点核验）。round-4 delta 复核通过后生效；报 BLOCKER 则撤 cron 回退。
+  产物：`deploy/ho007r2_gateway_deploy_20261016.sh`，stage md5 `71d14c88…`。
+
 ## D. 批准栏
 
 - [x] 用户 2026-10-15 指令："修改完成需要启动评审，评审结束通过要及时部署"
