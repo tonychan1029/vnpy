@@ -268,6 +268,19 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   二选一)→106 gateway_config 两处→Hermes config platform+weixin+ops 三处
   (同为旧值,须同批切)→TEST 端到端;新值不入任何 GitHub 文件。
 
+## 2026-10-15 午:HO006 实施 + HO005 MAJ-1 修复(评审中)
+- **HO006 已实施**(quant-repo d17ae08,用户批复"同意一、二项"):A1 武装列表
+  ema_pullback 退役(TREND_SIGNAL_CATEGORIES+runner 回退同步)/A2 入选跟踪
+  JSONL(/opt/aiprj/data/selection_tracking.jsonl,50MB 轮转,异常不阻断投递,
+  挂接 _push_scan_to_queue 入口与 notify 开关解耦)/A3 测试断言;
+  PoolEntry @dataclass 一度被误编辑吞掉已复原(实施插曲,最终态已验)。
+- **HO005 MAJ-1 修复**(2bba912):重检节流跨日清零。
+- 测试:40 passed(五文件)+selfcheck 82 exit 0。
+- **Round-10 独立评审进行中**(phase_a_round10_review.md 骨架已建)。
+- **部署就绪待评审 PASS**:poolscan.py+selection_runner.py 两文件 →
+  selection-runner 重启;窗口 10-16 04:15(与 ho007r2 网关部署 04:05 错峰,
+  后者为另一会话所有)。staging 待评审后执行。
+
 ## 2026-10-14 午后:HO004 实施 + HO005 阶段 0+1 安全子集(评审中)
 - **HO004 已实施**(vnpy a269f8e0+bbba8078):ContextTaggerV1 A1 退役 v1
   reversal/A2 R-C v2 实装(占位 trend 前,参考=研究侧 rev_C 逐行对齐)/
