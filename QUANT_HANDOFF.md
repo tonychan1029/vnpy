@@ -337,6 +337,12 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   topic=pa-latest-monitor）。旧值全链零残留（网关/Hermes/Worker 探测实证）。
   转账文件已清理，新值未入任何 GitHub 文件。**轮换彻底闭环，后续勿再提。**
 
+## 2026-10-15 13:1x App v1.3.0 升级完成+双渠道验收注入
+- 用户确认 App 已升 **v1.3.0**（多主题+新密钥构建）；被搁置的双通道 A1-A4
+  验收随即执行：⚡ 择时（pa-signal 主题）与 📋 选品（pa-latest-monitor 主题）
+  各注入一条 TEST——**待用户手机确认两渠道各收到、类目标签正确**，即双通道
+  A1-A4 验收闭环。
+
 ## 2026-10-15 00:3x 分频道协同切换完成
 - cloudwebhook Android 多主题订阅实施完毕（用户侧确认）；上游协同已执行：
   gateway_config `topic_timing: pa-signal`（备份 .bak_topicswitch_20261015）+
