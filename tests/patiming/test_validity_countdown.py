@@ -13,12 +13,12 @@ def test_warmup_then_anchor_then_countdown(tmp_path, clock):
 
     feed_bars(eng, clock, 9)  # warmup 8 closes + anchor on the 9th 1m close
     row = eng.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row["status"] == "ACTIVE" and row["remaining_bars"] == 12
+    assert row["status"] == "ACTIVE" and row["remaining_bars"] == 8  # HO008-B6: 默认 8
     assert row["anchor_bar"] is not None and row["effective_from"] is not None
 
     feed_bars(eng, clock, 2)
     row = eng.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row["remaining_bars"] == 10
+    assert row["remaining_bars"] == 6
 
 
 def test_expiry_cancels_alerts(tmp_path, clock):
@@ -51,12 +51,12 @@ def test_restart_recovery_persists_countdown(tmp_path, clock):
     submit_ok(eng, iid="INS-1")
     feed_bars(eng, clock, 10)  # anchor + 1 decrement
     row = eng.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row["remaining_bars"] == 11
+    assert row["remaining_bars"] == 7  # HO008-B6: 默认 8，锚定后 1 递减
     eng.close()
 
     eng2 = PatimingEngine(db, clock=clock)
     eng2.reconcile()
     feed_bars(eng2, clock, 3)
     row2 = eng2.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row2["remaining_bars"] == 9
+    assert row2["remaining_bars"] == 5  # HO008-B6: 8-1-2=5，重启恢复后续减
     eng2.close()

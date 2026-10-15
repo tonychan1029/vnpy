@@ -73,11 +73,11 @@ def test_expires_bar_refreshes_with_countdown(tmp_path, clock):
     submit_ok(eng, iid="INS-1")
     feed_bars(eng, clock, 9)
     row = eng.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row["remaining_bars"] == 12 and row["expires_bar"]
+    assert row["remaining_bars"] == 8 and row["expires_bar"]  # HO008-B6: 默认 8
     first = row["expires_bar"]
     feed_bars(eng, clock, 2)
     row = eng.db.fetch_instruction("strategy:demo", "INS-1")
-    assert row["remaining_bars"] == 10
+    assert row["remaining_bars"] == 6
     # 纯倒计时下的不变量：估算值 = 锚点 open + valid_bars（随基值同步移动）
     assert row["expires_bar"] == first
 

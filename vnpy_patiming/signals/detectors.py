@@ -156,7 +156,15 @@ class SecondBreakoutDetector(BaseDetector):
         out: list[AlertDraft] = []
         if body_ratio(bar) + EPS < ctx.cfg["breakout_body_min"]:
             return out
-        window = _dt.timedelta(minutes=ctx.cfg["second_breakout_window"])
+        # HO008-A3：窗口语义从"分钟"改"根"（×当前周期分钟数）——原实现按
+        # 分钟计窗口，60m 周期下 10 分钟窗口永不覆盖第二根突破（生产级失效）。
+        if len(ctx.bars) >= 2:
+            bar_minutes = max(1, int(
+                (ctx.bars[-1].datetime - ctx.bars[-2].datetime).total_seconds() // 60
+            ))
+        else:
+            bar_minutes = 1
+        window = _dt.timedelta(minutes=ctx.cfg["second_breakout_window"] * bar_minutes)
         recent = [e for e in ctx.fake_log if ctx.now - e.bar_time <= window]
         if not recent:
             return out
@@ -221,6 +229,9 @@ class EmaPullbackDetector(BaseDetector):
         if not touches:
             return out
         slope = ctx.ema_slope()
+        if slope == 0:
+            # HO008-A5：slope==0 方向不明，显式跳过（原隐式落 short 分支）
+            return out
         direction = "long" if slope > 0 else "short"
         if not ctx.allowed(direction):
             return out
@@ -273,7 +284,13 @@ class StructurePullbackDetector(BaseDetector):
                 continue
             touched = bar.low_price <= lv.price + tol if long_side else bar.high_price >= lv.price - tol
             held = bar.close_price >= lv.price if long_side else bar.close_price <= lv.price
-            confirmed = held and bar.close_price >= (bar.high_price + bar.low_price) / 2
+            # HO008-A2：空头确认方向修复——原实现多空共用"收于中位上方"，
+            # 空头侧自相矛盾（空头确认要求收于上半区=结构性永不触发）。
+            # short 改 close ≤ 中位（收于下半区），多头侧不变。
+            mid = (bar.high_price + bar.low_price) / 2
+            confirmed = held and (
+                bar.close_price >= mid if long_side else bar.close_price <= mid
+            )
             if not (lv.status == "tested" and touched and confirmed):
                 continue
             buf = ctx.buffer()

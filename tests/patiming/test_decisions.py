@@ -61,7 +61,7 @@ def test_multi_tf_confirmed_flag(tmp_path, clock):
     submit_ok(eng, iid="M-1", exec_timeframe="1m",
               key_levels={"prior_high": 100.0})
     submit_ok(eng, iid="M-2", exec_timeframe="5m",
-              key_levels={"prior_high": 100.0})
+              key_levels={"prior_high": 100.0}, valid_bars=10)
     _mk_alert(eng, _task(eng), 1, trigger=101.0)
     _mk_alert(eng, eng.tasks[("rb2501.SHFE", "5m")], 2, trigger=101.2)
     payload = eng._alert_payload(

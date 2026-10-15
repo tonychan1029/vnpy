@@ -144,24 +144,6 @@ class Database:
     def atomic(self) -> sqlite3.Connection:
         return self.conn
 
-    def save_bars(self, rows: list[dict]) -> int:
-        new = 0
-        for r in rows:
-            cur = self.conn.execute(
-                "INSERT OR IGNORE INTO market_bars VALUES (?,?,?,?,?,?,?,?,?)",
-                (r["symbol"], r["exchange"], r["interval"], r["dt"],
-                 r["open"], r["high"], r["low"], r["close"], r["volume"]),
-            )
-            new += cur.rowcount
-        self.commit()
-        return new
-
-    def load_bars(self, symbol: str, exchange: str, interval: str) -> list[dict]:
-        return self.query(
-            "SELECT * FROM market_bars WHERE symbol=? AND exchange=? AND interval=? "
-            "ORDER BY dt", (symbol, exchange, interval),
-        )
-
     # ---------------- instructions ----------------
 
     def fetch_instruction(self, source: str, instruction_id: str) -> dict | None:

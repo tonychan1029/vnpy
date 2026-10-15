@@ -52,7 +52,7 @@ REASON_DEFAULT_SIGNALS: dict[str, list[str]] = {
 
 DEFAULT_CONFIG: dict = {
     "poll_interval_s": 2.0,
-    "default_valid_bars": 12,
+    "default_valid_bars": 8,  # HO008-B6：对齐 2026-10-15 TTL×8 决议（60m→8h、1d→8d）
     "min_survival_minutes": 1,
     "quota_per_source": 20,
     "quota_total_active": 100,
@@ -87,7 +87,6 @@ DEFAULT_CONFIG: dict = {
     "pb_cooldown_bars": 10,
     "require_approval": False,
     "tick_fallback_on_stale": True,
-    "require_approval": False,
     "expire_bars_exec": 3,
     "warmup_min_exec": 42,  # max(3 * atr_period, 10)
     "warmup_min_selection": 1,
