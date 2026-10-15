@@ -205,6 +205,12 @@ class EmaPullbackDetector(BaseDetector):
     def detect(self, ctx: SignalContext) -> list[AlertDraft]:
         bar, atr = ctx.bar, ctx.atr
         out: list[AlertDraft] = []
+        # HO006 后续（2026-10-15 用户决议①）：EMA20 接刀已否决（MTG004：
+        # 基线 −0.202、12/12 年负、深跌闸门救援失败终局），默认关闭——
+        # cfg["enable_ema_pullback"]=True 才出信号（对齐 enable_w_m 先例，
+        # HO001 基线零回归）。
+        if not ctx.cfg.get("enable_ema_pullback", False):
+            return out
         if ctx.context_tag not in ("trend_strong", "trend_channel"):
             return out
         ema = ctx.ema.value

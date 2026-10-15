@@ -43,7 +43,8 @@ DIRECTIONS = {"long", "short", "both"}
 
 REASON_DEFAULT_SIGNALS: dict[str, list[str]] = {
     "BREAKOUT_WATCH": ["breakout", "fake_breakout", "second_breakout"],
-    "TREND_FOLLOW": ["ema_pullback", "structure_pullback", "h1_l1"],
+    # HO006 后续（2026-10-15 决议①）：ema_pullback 退役移除
+    "TREND_FOLLOW": ["structure_pullback", "h1_l1"],
     "RANGE_FADE": ["range_edge", "fake_breakout", "w_m"],
     "REVERSAL_WATCH": ["w_m"],
     "DISCRETIONARY": [],
@@ -105,6 +106,8 @@ DEFAULT_CONFIG: dict = {
     "wm_max_sep_bars": 30,
     "wm_tol_atr": 0.5,
     "wm_neck_min_atr": 1.0,
+    # ---- HO006 后续（2026-10-15 决议①）：EMA20 接刀退役，默认关闭 ----
+    "enable_ema_pullback": False,
 }
 
 

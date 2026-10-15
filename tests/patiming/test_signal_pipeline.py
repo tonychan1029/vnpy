@@ -85,7 +85,7 @@ def test_s4_ema_pullback_detector_and_max_stop(tmp_path, clock):
     levels = LevelManager()
 
     def ctx(max_stop_atr: float) -> SignalContext:
-        cfg2 = dict(cfg, max_stop_atr=max_stop_atr)
+        cfg2 = dict(cfg, max_stop_atr=max_stop_atr, enable_ema_pullback=True)
         return SignalContext(bars=bars, atr=1.0, ema=ema, pivots=pivots,
                              levels=levels, cfg=cfg2, direction="both",
                              context_tag="trend_strong", now=bars[-1].datetime,

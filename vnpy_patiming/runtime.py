@@ -238,7 +238,7 @@ class MonitoringTask:
                     continue
                 if row["signal_categories"] == "ALL" and det.category not in {
                     "breakout", "fake_breakout", "second_breakout",
-                    "ema_pullback", "structure_pullback", "range_edge",
+                    "structure_pullback", "range_edge",
                 }:
                     continue
                 for draft in det.detect(ctx):
