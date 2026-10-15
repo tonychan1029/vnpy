@@ -524,6 +524,29 @@ PYTHONPATH=/opt/aiprj/selection:/opt/aiprj /opt/aiprj/venv/bin/python /opt/aiprj
 - 双渠道验收注入（13:1x）：⚡ 择时（pa-signal）与 📋 选品（pa-latest-monitor）
   各一条 TEST——待用户手机确认两渠道各收到、类目标签正确。
 
+## 2026-10-15 22:1x HO008-A 组+B6 部署完成（盘后窗口）
+- **HO008-A 组+B6 全部上线**（用户签批 final；拾取→实施→测试→部署闭环）：
+  A1 pool_config market_min_rr 1.0→**1.6**（RR≥1.6 用户政策落地）；
+  A2 StructurePullback 空头确认方向修复（空头改 close≤mid，原多空共用
+  "收于上半区"=空头结构性永不触发）；A3 SecondBreakout 窗口单位分钟→根
+  （60m 下原 10 分钟窗口永不覆盖第二根突破）；A4 db.py save_bars 双定义
+  去重（保留 D11 守卫版）；A5 config.py require_approval 重复键去重 +
+  EmaPullback slope==0 显式跳过；A6 HERMES 双文档 TREND_FOLLOW 移除
+  ema_pullback（quant-repo f2c47f3）；B6 default_valid_bars 12→8
+  （TTL×8 对齐，config.py:55）。
+- 部署验证：三文件 md5 逐位 ✓（detectors d77368d8/db 398e6dec/config
+  755a598c）、patiming-engine/selection-runner 双重启 active、MCP 启动 ✓、
+  零 Traceback、preflight 6/6、marker /opt/aiprj/.deployed_ho008_20261015。
+  测试 80 passed+2 已知环境失败；countdown 三测试断言对齐 B6 语义
+  （12→8；M-2 场景 1m 选品+5m 执行需显式 valid_bars≥10，生产 60m/1d
+  选品不受影响）。本地提交 a770153b。
+- **A2/A3 为"永不触发→按定义触发"行为变化：48h 影子/日志观察**（10-17 前
+  留意 structure_pullback 空头与 second_breakout 首次触发记录），异常走
+  回滚模板（备份 *.bak_ho008_20261015）。
+- 遗留：HO008-B 组（B1 楔形锚/B2 换月量能 NaN/B3 影子 key_levels/B4
+  exec_tf 核查/B5 死刑传导脚本）随下一基线批次；C 组随 HO007；quant-repo
+  推送被 URL 级代理配置阻塞待重试（部署不依赖远端）。
+
 ## 用户偏好/纪律(累计)
 UI 界面优先,拒绝 SSH 日常使用;升级/重启只允许凌晨 04:00-05:15 窗口;**106 试运行期间放宽:盘后（15:00 收线后）可部署（2026-10-15 用户定；正式运行恢复窗口制）**;决策类先问再做;单套 vnpy 不分叉,不重复造轮子;研究回测盘后跑与生产零耦合;**实施完成必须独立评审,通过才能提交部署**;流程图/设计稿先审后做;上下文不稳时以本胶囊+todo 为准,勿凭记忆;**同一任务执行超 20 分钟仍在原地打转=立即中断出来,先解决问题再重新执行(2026-10-13 晚新增;适用于命令反复失败重试/依赖安装卡顿/等外部响应/会话内反复无进展等一切场景——先诊断根因,处置后重跑,禁止干耗)**。
 
