@@ -186,10 +186,13 @@ class ContextTaggerV1:
             ret_up = H20 - close
             ret_dn = close - L20
             c_ret = ret_up >= 1.0 * atr or ret_dn >= 1.0 * atr
-            f_half = (
-                (leg_up > 0 and ret_up / leg_up >= 0.5)
-                or (leg_dn > 0 and ret_dn / leg_dn >= 0.5)
-            )
+            # round-10 Q3 修正：回撤比例按腿各自 ≥2×ATR 计入（严格对齐参考实现
+            # context_v2_diagnostic rev_C；宽松版曾致 reversal 占比 +17pp 漂移）
+            f_half = False
+            if leg_up >= 2.0 * atr and leg_up > 0:
+                f_half = f_half or ret_up / leg_up >= 0.5
+            if leg_dn >= 2.0 * atr and leg_dn > 0:
+                f_half = f_half or ret_dn / leg_dn >= 0.5
             if c_ret and f_half:
                 return "reversal", strict
         if slope * diff > 0:
