@@ -38,7 +38,7 @@
   分解呈现：4b/4c 对 4a 锚的 OOS 增量同步全表报告（多重比较警示：结论以 4d 为准）。
   4a 与修正后 rs020 臂2 long 已逐位互证（n=108/74/34 全表一致，两实现独立等价）。
 
-输出：assets/RS019/merge_hybrid_backtest.md
+输出：assets/RS019/merge_hybrid_backtest.md（v3）；merge_hybrid_backtest_v4.md（v4）
 """
 
 from __future__ import annotations
@@ -52,6 +52,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from analysis.cost import cost_return  # noqa: E402  # 阶段0-2 单一成本实现
+
+# ── v4 变更（2026-10-15，预注册卡 assets/RS019/hybrid_v4_preregistration.md；用户批准）──
+# ①主判读=4c'（窗口化吸收确认：回踩腿龄窗内任一已收 60m bar 满足 M-EX-003
+#   四条件）；4b(mom6) 降级分解呈现（CAND-007 证据链已关闭，阶段0-1）；4d'=4b∩4c' 仅归因参考。
+# ②主判读口径=可交易（DEC003+1tick，analysis.cost 单一实现），无成本列同报仅作诊断。
+# ③标签口径：as_of（无标签条件化统计量，GT 不参与）。
+# ④最小样本护栏 n≥30；n<30 → inconclusive 终局（不再迭代变体）。
 
 DATA5 = Path(r"D:\AIprj\tradereplay\data\5m")
 DATA60 = Path(r"D:\AIprj\tradereplay\data\60m")
@@ -244,7 +253,8 @@ def pullback_arm(seg, cfg):
           else (cur - lo) / (hi - lo)) if hi > lo else 0.0
     if not (cfg["pb_lo"] <= pb <= cfg["pb_hi"]) or dev_ma > cfg["ma_near"]:
         return None
-    return {"dir": best["dir"], "pb": pb * 100, "dev_ma": dev_ma}
+    return {"dir": best["dir"], "pb": pb * 100, "dev_ma": dev_ma,
+            "age": n - 1 - best["b"]}
 
 
 # ───────────────────────── 60m 趋势/mom6（Hermes B 方案 4% 换月平滑） ─────────────────────────
@@ -398,11 +408,13 @@ def main():
                 ev["v4b"] = True
                 counts["4b"] += 1
 
-            # ── 4c M-EX-003 吸收确认（最近已收 60m bar，无前视） ──
-            # bar 真实收盘时刻=其覆盖区间 [T,T+60min) 内最后一根 5m 的时刻+5min
-            # （60m 模板 bar 11:15/14:15 实际收于 11:30/15:00，用 5m 覆盖实证）
+            # ── 4c' 窗口化吸收确认（v4 主臂；预注册卡 §2） ──
+            # 窗口=回踩腿龄窗 (node_close − age×5min, node_close]；bar 实际
+            # 收盘时刻用 5m 覆盖实证；窗内任一已收 bar 满足 M-EX-003 四条件即确认。
             node_close = parse_dt(node_dt) + timedelta(minutes=BAR_MIN["5m"])
+            window_start = node_close - timedelta(minutes=BAR_MIN["5m"] * r["age"])
             k = j60
+            confirmed = False
             while k > 0:
                 t0 = h60[k - 1][I_DT]
                 t1 = (parse_dt(t0) +
@@ -413,10 +425,16 @@ def main():
                     bar_close = parse_dt(dt5[hi_i - 1]) + timedelta(minutes=5)
                 else:                      # 无 5m 覆盖→保守回退 start+60
                     bar_close = parse_dt(t0) + timedelta(minutes=BAR_MIN["60m"])
-                if bar_close <= node_close:
+                if bar_close > node_close:
+                    k -= 1
+                    continue               # 未收（无前视）
+                if bar_close <= window_start:
+                    break                  # 早于回踩腿龄窗
+                if len(h60[:k]) >= 21 and mex003_long_confirmed(h60[:k]):
+                    confirmed = True
                     break
                 k -= 1
-            if k >= 21 and mex003_long_confirmed(h60[:k]):
+            if confirmed:
                 ev["v4c"] = True
                 counts["4c"] += 1
 
@@ -442,51 +460,56 @@ def main():
     # ── 报告 ──
     def tbl(sub, label):
         L = [f"**{label}**", "",
-             "| 口径 | " + " | ".join(f"+{k}日胜率" for k in HORIZONS) + " | "
-             + " | ".join(f"+{k}日均值" for k in HORIZONS) + " |",
-             "|---|" + "---|" * (len(HORIZONS) * 2)]
+             "| 口径 | 成本 | " + " | ".join(f"+{k}日胜率（均值）" for k in HORIZONS)
+             + " |", "|---|---|" + "---|" * len(HORIZONS)]
         for tag, cond in (("全样本", lambda e: True),
                           ("in <2022", lambda e: e["td"] < SPLIT),
                           ("out ≥2022", lambda e: e["td"] >= SPLIT)):
             s2 = [e for e in sub if cond(e)]
-            cells = []
-            for h in HORIZONS:
-                v = [e["fwd"][h] for e in s2 if h in e["fwd"]]
-                cells.append(f"{sum(1 for x in v if x > 0) / len(v):.1%}（n={len(v)}）"
-                             if v else "-")
-            for h in HORIZONS:
-                v = [e["fwd"][h] for e in s2 if h in e["fwd"]]
-                cells.append(f"{sum(v) / len(v):+.2%}" if v else "-")
-            L.append(f"| {tag} | " + " | ".join(cells) + " |")
+            for costed in (False, True):
+                cells = []
+                for h in HORIZONS:
+                    v = []
+                    for e in s2:
+                        g = e["fwd"].get(h)
+                        if g is None:
+                            continue
+                        v.append((1 + g) * (1 - cost_return(e["sym"], e["entry"])) - 1
+                                 if costed else g)
+                    cells.append(f"{sum(1 for x in v if x > 0) / len(v):.1%}"
+                                 f"（{sum(v) / len(v):+.2%}，n={len(v)}）" if v else "-")
+                L.append(f"| {tag} | {'可交易' if costed else '无成本'} | "
+                         + " | ".join(cells) + " |")
         return L
 
-    L = ["# RS019 臂4 hybrid 限多头（v3 干净重写；RS020 §7.2 预注册设计）", "",
+    L = ["# RS019 臂4 hybrid v4（窗口化吸收确认；预注册卡 hybrid_v4_preregistration.md）", "",
          "- 准入=臂2 Hermes pullback 四因子 ∩ 60m HH/HL 多头（θ1.5%+4% 换月平滑）；",
-         "- 4a=准入锚；4b=+mom6（60m 平滑 6 根动量>0）；4c=+M-EX-003 吸收确认",
-         "  （60m h2h 原口径：缩量≤0.8+收盘上1/3+回调背景+prior_ret20>−5%，",
-         "  确认 bar 无前视截断）；4d=4b∩4c 双确认（主臂）；",
-         "- 前瞻=事件收盘→交易日 +5/+10/+20 收盘（方向调整，无成本）；",
+         "- **4c'=主臂**=4a+窗口化吸收确认（回踩腿龄窗内任一已收 60m bar 满足",
+         "  M-EX-003 四条件；bar 实际收盘时刻用 5m 覆盖实证，无前视）；",
+         "- 4a=准入锚；4b=+mom6（降级分解呈现，CAND-007 证据链已关闭）；4d'=4b∩4c'；",
+         "- **双口径强制（阶段0-2）**：同报无成本/可交易（DEC003+1tick，analysis.cost）；",
+         "- 前瞻=事件收盘→交易日 +5/+10/+20 收盘（方向调整）；",
          f"- 事件数：4a={counts['4a']} 4b={counts['4b']} 4c={counts['4c']} "
-         f"4d={counts['4d']}；对照锚（勘误修正后 rs020）：臂2 全方向 OOS +20日 "
-         "+0.85%（n=106）、臂2 long OOS +0.72%（n=34，与本报告 4a 逐位互证）。", ""]
+         f"4d={counts['4d']}；锚=4a 同口径重算（含成本列）。", ""]
 
     name_map = {"4a": "臂4a 准入锚（对照）",
-                "4b": "臂4b = 4a + mom6 动量确认",
-                "4c": "臂4c = 4a + M-EX-003 吸收确认",
-                "4d": "臂4d = 4b∩4c 双确认（主臂）"}
+                "4b": "臂4b = 4a + mom6 动量确认（降级分解呈现）",
+                "4c": "臂4c' = 4a + 窗口化吸收确认（主臂）",
+                "4d": "臂4d' = 4b∩4c'（仅归因参考）"}
     for key in ("4a", "4b", "4c", "4d"):
         sub = [e for e in events if e["v" + key]]
         L += tbl(sub, name_map[key])
         L.append("")
 
-    # OOS +20 分解
-    L += ["## OOS +20日 分解（增量归因）", "",
+    # OOS +20 分解（可交易口径为主判读口径）
+    L += ["## OOS +20日 分解（可交易口径，增量归因）", "",
           "| 臂 | OOS n | 胜率 | 均值 | vs 4a 增量 |", "|---|---|---|---|---|"]
     base = None
     oos_rows = {}
     for key in ("4a", "4b", "4c", "4d"):
         sub = [e for e in events if e["v" + key] and e["td"] >= SPLIT and 20 in e["fwd"]]
-        v = [e["fwd"][20] for e in sub]
+        v = [(1 + e["fwd"][20]) * (1 - cost_return(e["sym"], e["entry"])) - 1
+             for e in sub]
         m = sum(v) / len(v) if v else None
         w = sum(1 for x in v if x > 0) / len(v) if v else None
         oos_rows[key] = (m, len(v), w)
@@ -496,53 +519,57 @@ def main():
         L.append(f"| {key} | {len(v)} | {w:.1%} | {m:+.2%} | {delta} |"
                  if m is not None else f"| {key} | n不足 | - | - | - |")
 
-    # 分年（OOS 段，诚实检查）
-    L += ["", "## 4d 分年 OOS +20日（诚实检查）", "",
+    # 分年（OOS 段，诚实检查——主臂 4c'）
+    L += ["", "## 4c' 分年 OOS +20日（可交易口径，诚实检查）", "",
           "| 年 | n | 胜率 | 均值 |", "|---|---|---|---|"]
     by_year = defaultdict(list)
     for e in events:
-        if e["v4d"] and e["td"] >= SPLIT and 20 in e["fwd"]:
-            by_year[e["td"][:4]].append(e["fwd"][20])
+        if e["v4c"] and e["td"] >= SPLIT and 20 in e["fwd"]:
+            g = (1 + e["fwd"][20]) * (1 - cost_return(e["sym"], e["entry"])) - 1
+            by_year[e["td"][:4]].append(g)
     for y in sorted(by_year):
         v = by_year[y]
         L.append(f"| {y} | {len(v)} | {sum(1 for x in v if x > 0) / len(v):.1%} "
                  f"| {sum(v) / len(v):+.2%} |")
 
     # 分品种（OOS 段）
-    L += ["", "## 4d 分品种 OOS +20日", "",
+    L += ["", "## 4c' 分品种 OOS +20日（可交易口径）", "",
           "| 品种 | n | 胜率 | 均值 |", "|---|---|---|---|"]
     by_sym = defaultdict(list)
     for e in events:
-        if e["v4d"] and e["td"] >= SPLIT and 20 in e["fwd"]:
-            by_sym[e["sym"]].append(e["fwd"][20])
+        if e["v4c"] and e["td"] >= SPLIT and 20 in e["fwd"]:
+            g = (1 + e["fwd"][20]) * (1 - cost_return(e["sym"], e["entry"])) - 1
+            by_sym[e["sym"]].append(g)
     for s in sorted(by_sym):
         v = by_sym[s]
         L.append(f"| {s} | {len(v)} | {sum(1 for x in v if x > 0) / len(v):.1%} "
                  f"| {sum(v) / len(v):+.2%} |")
 
-    # 预注册机械判读（最小样本护栏 n≥30）
+    # 预注册机械判读（主臂 4c' 可交易口径 vs 4a 同口径锚；护栏 n≥30；终局条款）
     MIN_N = 30
-    L += ["", "## 预注册判读（机械，含最小样本护栏 n≥30）", ""]
-    m4d, n4d, w4d = oos_rows["4d"]
-    if m4d is None or n4d < MIN_N:
-        L.append(f"- 主判读：4d OOS +20日样本不足"
-                 f"（n={n4d if m4d is not None else 0} < {MIN_N}）→ "
-                 "**判读不可下结论（inconclusive）**——不宣称优化有增量，"
-                 "也不据此否决；路径建议（需预注册后另行验证）：扩大品种池 / "
-                 "节点对齐 60m 收盘 / 吸收确认窗口化（回踩腿龄窗内任一已收 bar）")
+    L += ["", "## 预注册判读（机械；主臂 4c' 可交易口径 vs 4a 同口径锚；护栏 n≥30）", ""]
+    m4c, n4c, w4c = oos_rows["4c"]
+    m4a, n4a, w4a = oos_rows["4a"]
+    if m4c is None or n4c < MIN_N:
+        L.append(f"- 主判读：4c' OOS +20日可交易样本不足"
+                 f"（n={n4c if m4c is not None else 0} < {MIN_N}）→ "
+                 "**判读不可下结论（inconclusive 终局）**——按预注册卡 §3，"
+                 "不再迭代变体；如需继续须重新立项并获用户批准。")
     else:
-        verdict = m4d > 0 and m4d > 0.0085
-        L.append(f"- 主判读：4d OOS +20日 {m4d:+.2%}（n={n4d}）— "
-                 + ("**>0 且 >臂2 全方向 +0.85% → 优化有增量 ✅**"
-                    if verdict else "**未同时满足 >0 且 >+0.85% → 优化无增量 ❌**"))
-    m4a = oos_rows["4a"][0]
-    if m4a is not None and all(oos_rows[k][0] is not None for k in ("4b", "4c")):
+        ok4a = (m4a is not None)
+        verdict = m4c > 0 and ok4a and m4c > m4a
+        L.append(f"- 主判读：4c' OOS +20日可交易 {m4c:+.2%}（n={n4c}，胜率 "
+                 f"{w4c:.1%}）vs 4a 锚 {m4a:+.2%}（n={n4a}）— "
+                 + ("**>0 且 >4a 同口径锚 → 窗口化吸收确认有增量 ✅**"
+                    if verdict else
+                    "**未同时满足 >0 且 >4a 锚 → 增量不成立 ❌（终局）**"))
+    if m4a is not None and all(oos_rows[k][0] is not None for k in ("4b", "4d")):
         L.append(f"- 分解呈现：4b {oos_rows['4b'][0]:+.2%}（n={oos_rows['4b'][1]}） / "
-                 f"4c {oos_rows['4c'][0]:+.2%}（n={oos_rows['4c'][1]}，单事件主导，"
-                 f"无统计意义） / 4d {m4d:+.2%}（n={n4d}） vs 4a 锚 {m4a:+.2%}"
-                 f"（n={oos_rows['4a'][1]}）——小样本仅作方向性观察，不作增量结论")
-    L.append("- 多重比较警示：4 变体×3 horizon 同报，结论以预注册 4d 主判读为准；"
-             "分解表仅作归因呈现，不作选择性引用。")
+                 f"4c' {m4c:+.2%}（n={n4c}） / 4d' {oos_rows['4d'][0]:+.2%}"
+                 f"（n={oos_rows['4d'][1]}） vs 4a 锚 {m4a:+.2%}（n={n4a}）"
+                 "——分解仅作归因，不作增量结论")
+    L.append("- 多重比较警示：4 变体×3 horizon 同报，结论以预注册 4c' 主判读为准；"
+             "双口径以可交易列判读，无成本列仅诊断。")
 
     L += ["", "## 诚实声明", "",
           "- 5/10 品种子集；5m 后复权为研究侧移植（同 rs020）；60m 为未复权直拼",
@@ -551,22 +578,25 @@ def main():
           "- 臂2 趋势过滤维持 rs020 原口径（dt≤node_dt，含未收当根≈前视≤55min）",
           "  以保与臂2 可比；M-EX-003 确认 bar 用 5m 覆盖实证真实收盘时刻，",
           "  恰在节点收盘形成的当根包含在内（无前视）；",
-          "- mom6 周期口径选择=60m（选品背景周期），非 RS013 原样 60m 基线复刻——",
-          "  与 CAND-007 突破段用法不同，属口径移植假设；",
+          "- mom6 层（4b）先验已失效：CAND-007/mom6 突破段条件化经阶段0-1 as_of",
+          "  复算证据链关闭（mom6_asof_recheck.md）——4b 仅作分解呈现，其无增量",
+          "  实测与该结论方向一致；",
           "- M-EX-003 用法定位：S-002 主场景回调到位确认（仅多头、含闸门），",
-          "  非对其他信号的量能叠加过滤（MLIB 红线内）；",
+          "  非对其他信号的量能叠加过滤（MLIB 红线内）；窗口化=放宽确认时机",
+          "  （腿龄窗内任一已收 bar），四条件阈值不变；",
           "- quant 积分准入层：公式档案（quant_gap_analysis.md/hermes_scripts）未落盘，",
           "  挂起不臆测，待归档后补测（本报告缺口如实登记）；",
-          "- 收盘口径非执行口径；无成本无执行建模；datetime 语义=bar 开始时刻",
-          "  （2024-06-03 RB 5m 聚合对照实证）。"]
+          "- 双口径：可交易列=DEC003 佣金双边+1tick/边（analysis.cost，收盘价",
+          "  折算、非执行口径）；主判读以可交易列为准，无成本列仅诊断；",
+          "- datetime 语义=bar 开始时刻（2024-06-03 RB 5m 聚合对照实证）。"]
 
-    out = OUT / "merge_hybrid_backtest.md"
+    out = OUT / "merge_hybrid_backtest_v4.md"
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
     print("->", out)
     for key in ("4a", "4b", "4c", "4d"):
         m, n, w = oos_rows[key]
         if m is not None:
-            print(f"{key} OOS +20d: n={n} win={w:.1%} avg={m:+.2%}")
+            print(f"{key} OOS +20d costed: n={n} win={w:.1%} avg={m:+.2%}")
 
 
 if __name__ == "__main__":
