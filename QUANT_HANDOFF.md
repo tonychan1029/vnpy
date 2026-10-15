@@ -331,6 +331,12 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   ⚠️ 本胶囊正被研究侧会话并行编辑——**写后立即 commit**;其新一批产出
   (RS017/019/020/021、HO006、DEC006、MTG006 等)尚未入库,归其会话收尾。
 
+## 2026-10-15 13:08 WEBHOOK_SECRET 轮换闭环 ✅
+- 用户面板保存新值 → 网关 custom 两处切同值+重启 → e2e 双验证过
+  （timing --test 双腿 2xx"目标=custom,hermes"；selection 直注 Worker 2xx
+  topic=pa-latest-monitor）。旧值全链零残留（网关/Hermes/Worker 探测实证）。
+  转账文件已清理，新值未入任何 GitHub 文件。**轮换彻底闭环，后续勿再提。**
+
 ## 2026-10-15 00:3x 分频道协同切换完成
 - cloudwebhook Android 多主题订阅实施完毕（用户侧确认）；上游协同已执行：
   gateway_config `topic_timing: pa-signal`（备份 .bak_topicswitch_20261015）+
