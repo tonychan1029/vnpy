@@ -268,7 +268,19 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   二选一)→106 gateway_config 两处→Hermes config platform+weixin+ops 三处
   (同为旧值,须同批切)→TEST 端到端;新值不入任何 GitHub 文件。
 
-## 2026-10-15 午:HO006 实施 + HO005 MAJ-1 修复(评审中)
+## 2026-10-15 12:4x NOTE 拾取单盘点定案(HO003-HO006)
+- **HO003**:✅ 完结(v1 交付+by_year+勘误;研究侧 v1 验收已出)。
+- **HO004**:✅ 完结(tagger v2+B4+context_tags_v2 六品种交付;待研究侧 B1-B3
+  验收——runner 已预置,context_tags_v2/ 已在其路径)。
+- **HO005**:阶段 0+1 部分完成。已上线=A1 粘性修复(monitor 类)+B1 contract_code
+  +换月事件走统一出口。**A3 旧合约预警抑制=连续符号现实下不适用**（生产池
+  每 close 节点整体替换,旧条目暴露 ≤1 个收线节点,自然有界——RS018 方案 C
+  原设计即如此,无需抑制代码）。**B2/B3（rollover_policy 入 hash+一致性检查
+  REVOKE 链）待用户拍板**:(a) 移植 OI 换月检测到 runner+主动 REVOKE 旧任务单
+  （~半天+评审;主动撤单,暴露归零）(b) 维持 TTL 自然过期（RS018 方案 C 原批准
+  设计,零代码,暴露 ≤2 交易日,换月预警已上线兜底）。实施者建议 (b) 先行,
+  (a) 列入观察期后迭代——**待用户选**。
+- **HO006**:✅ 已实施,10-16 04:15 窗口部署（staging/cron/试跑全就绪）。
 - **HO006 已实施**(quant-repo d17ae08,用户批复"同意一、二项"):A1 武装列表
   ema_pullback 退役(TREND_SIGNAL_CATEGORIES+runner 回退同步)/A2 入选跟踪
   JSONL(/opt/aiprj/data/selection_tracking.jsonl,50MB 轮转,异常不阻断投递,
