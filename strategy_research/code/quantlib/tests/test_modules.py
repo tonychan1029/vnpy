@@ -263,3 +263,16 @@ class TestSellingClimax:
                 for i in range(25)]
         r = selling_climax(bars, atr=2.0, vol_mult=1.5)
         assert isinstance(r, bool)
+
+def test_wedge_three_push_amplitude_decay():
+    """阶段0-4 勘误回归：幅度衰减语义（旧版价格序判向 + decay_ratio 死参数）。"""
+    closes = [100.0] * 6
+    for a, b, k in ((100, 105, 5), (105, 104, 4), (104, 107, 5),
+                    (107, 106.5, 4), (106.5, 108, 5), (108, 107.5, 4)):
+        closes += [a + (b - a) * i / k for i in range(1, k + 1)]
+    bars = [[i, c, c + 0.2, c - 0.2, c, 100.0, 0.0]
+            for i, c in enumerate(closes)]
+    r = wedge_three_push(bars, window=30)
+    assert r is not None and r["direction"] == "short"
+    a1, a2, a3 = r["pushes"]
+    assert a1 > a2 > a3 and a3 <= 0.67 * a1

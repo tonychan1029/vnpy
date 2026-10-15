@@ -40,6 +40,9 @@ def m_dv_002_new_low_shrink(highs: list[float], lows: list[float],
     条件：最近摆动低点 L2 价格 < 前一低点 L1（创新低），且 L2 根的
     rvol_adj < shrink_ratio x L1 根的 rvol_adj -> 卖压衰竭（True）。
     rvol 不足（None）-> None（不判定）。
+
+    勘误（2026-10-15 阶段0-4）：L1 侧原用原始成交量均值（与 L2 侧 rvol
+    量纲错配，恒真假阳性）——改为 L1 根同样按 M-VR-002 计算 rvol（量纲一致）。
     """
     lp = [p for p in pivots if p.kind == "L"]
     if len(lp) < 2 or rvol_at_new_low is None:
@@ -47,11 +50,8 @@ def m_dv_002_new_low_shrink(highs: list[float], lows: list[float],
     l1, l2 = lp[-2], lp[-1]
     if l2.price >= l1.price:
         return False
-    # L1 根相对量以调用方传入同窗口计算；此处用 volumes 在两 pivot 邻域的均值近似
-    i1 = l1.index
-    base1 = volumes[max(0, i1 - 3): i1 + 1]
-    rvol_l1 = (sum(base1) / len(base1)) if base1 else None
-    if not rvol_l1:
+    rvol_l1 = m_vr_002_rvol(volumes, l1.index)
+    if rvol_l1 is None:
         return None
     return rvol_at_new_low < shrink_ratio * rvol_l1
 
@@ -59,19 +59,27 @@ def m_dv_002_new_low_shrink(highs: list[float], lows: list[float],
 # ------------------------- M-EX-003 / M-DV-001（v1，2026-10-12 定稿） ------
 
 def m_ex_003_volume_exhaustion(bar, rvol_adj: float | None,
-                               shrink: float = 0.8) -> bool | None:
-    """M-EX-003 量能衰竭K：rvol_adj < shrink 且收盘靠反转侧 1/3。
+                               shrink: float = 0.8,
+                               prior_ret20: float | None = None) -> bool | None:
+    """M-EX-003 量能衰竭K（多头侧专用；实证约束已编码，阶段0-4）。
 
-    bar 需 open/high/low/close。rvol 缺失 -> None（不判定）。
-    连续增强（两根连缩）由调用方按前一根结果叠加。
+    实证约束（MLIB 登记册，违反即无效）：
+      ①仅多头口径——空头侧 h2h 镜像为负，禁用；
+      ②闸门 prior_ret20 > −5%：深跌背景不放行（None/缺失 → None 不判定）；
+      ③仅供 S-002 回调到位确认，禁止作其他信号的量能过滤叠加（调用方约束）。
+    收盘反转侧 1/3 = close ≥ low + (2/3)×rng（勘误：原 rng/3 偏松，
+      与 quantlib entry_signal 权威口径统一）。
+    rvol 缺失 -> None（不判定）。连续增强（两根连缩）由调用方叠加。
     """
     if rvol_adj is None:
+        return None
+    if prior_ret20 is None or prior_ret20 <= -0.05:
         return None
     body = abs(bar.close_price - bar.open_price)
     rng = bar.high_price - bar.low_price
     if rng <= 0:
         return False
-    reversal_side = bar.close_price >= bar.low_price + rng / 3  # 多头口径
+    reversal_side = bar.close_price >= bar.low_price + rng * (2.0 / 3.0)
     return rvol_adj < shrink and reversal_side
 
 

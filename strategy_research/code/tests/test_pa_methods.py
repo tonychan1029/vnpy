@@ -94,21 +94,24 @@ def test_w_bottom():
 
 
 def test_rvol_and_new_low_shrink():
-    vols = [100.0] * 10 + [200.0] * 5 + [60.0]        # 基准均值~113，当前 60 缩量
-    r = m_vr_002_rvol(vols, t=15, n=10)
+    vols = [100.0] * 20 + [200.0] * 5 + [60.0]        # L1@15 基准均量 100
+    r = m_vr_002_rvol(vols, t=25, n=20)               # 当前 60，基准均 125
     assert r is not None and r < 1.0
     # 换月剔除：基准窗口含标记根时仍可算（剔除后半数以上即可）
-    r2 = m_vr_002_rvol(vols, t=15, n=10, rollover_flags={5})
+    r2 = m_vr_002_rvol(vols, t=15, n=20, rollover_flags={5})
     assert r2 is not None
     # 数据不足 -> None
     assert m_vr_002_rvol([100.0] * 3, t=2, n=10) is None
-    # 新低缩量：L2 创新低且相对量缩
-    pivots = [SwingPoint("L", 100.0, 5), SwingPoint("L", 99.0, 15)]
-    assert m_dv_002_new_low_shrink([], [], vols, pivots, rvol_at_new_low=0.5,
+    # 新低缩量：L2 创新低且相对量缩（L1/L2 均为 rvol，量纲一致——阶段0-4 勘误）
+    pivots = [SwingPoint("L", 100.0, 15), SwingPoint("L", 99.0, 25)]
+    # L2 根 rvol = 60/125 = 0.48 < 0.8 x rvol_l1(=100/100=1.0) -> True
+    assert m_dv_002_new_low_shrink([], [], vols, pivots, rvol_at_new_low=0.48,
                                     shrink_ratio=0.8) is True
+    # 量纲一致性回归（旧 bug 防御）：rvol_at_new_low=0.9 不缩量 -> False
+    assert m_dv_002_new_low_shrink([], [], vols, pivots, 0.9, 0.8) is False
     # 未创新低 -> False
-    pivots2 = [SwingPoint("L", 100.0, 5), SwingPoint("L", 101.0, 15)]
-    assert m_dv_002_new_low_shrink([], [], vols, pivots2, 0.5, 0.8) is False
+    pivots2 = [SwingPoint("L", 100.0, 15), SwingPoint("L", 101.0, 25)]
+    assert m_dv_002_new_low_shrink([], [], vols, pivots2, 0.48, 0.8) is False
     # rvol 缺失 -> None
     assert m_dv_002_new_low_shrink([], [], vols, pivots, None, 0.8) is None
 
@@ -136,11 +139,18 @@ def test_level_state_machine():
 
 
 def test_volume_exhaustion_and_divergence():
-    # M-EX-003：缩量 + 收盘靠反转侧 1/3
-    ex_bar = Bar(100, 100.4, 99.0, 100.2)      # 收盘在区间上部（多头反转侧）
-    assert m_ex_003_volume_exhaustion(ex_bar, 0.6) is True
-    assert m_ex_003_volume_exhaustion(ex_bar, 0.9) is False    # 不够缩量
-    assert m_ex_003_volume_exhaustion(ex_bar, None) is None
+    # M-EX-003：缩量 + 收盘靠反转侧 1/3（close ≥ low + 2/3 rng，阶段0-4 勘误）
+    ex_bar = Bar(100, 100.4, 99.0, 100.2)      # rng=1.4, 反转侧阈值=99.933
+    assert m_ex_003_volume_exhaustion(ex_bar, 0.6, prior_ret20=0.01) is True
+    assert m_ex_003_volume_exhaustion(ex_bar, 0.9,
+                                      prior_ret20=0.01) is False  # 不够缩量
+    mid_bar = Bar(100, 100.4, 99.0, 99.7)      # 收盘中部（非反转侧 1/3）
+    assert m_ex_003_volume_exhaustion(mid_bar, 0.6,
+                                      prior_ret20=0.01) is False
+    # 闸门：prior_ret20 ≤ −5% 或缺失 -> None（深跌不放行）
+    assert m_ex_003_volume_exhaustion(ex_bar, 0.6, prior_ret20=-0.06) is None
+    assert m_ex_003_volume_exhaustion(ex_bar, 0.6, prior_ret20=None) is None
+    assert m_ex_003_volume_exhaustion(ex_bar, None, prior_ret20=0.01) is None
     # M-DV-001：反弹放量 + 探底缩量
     assert m_dv_001_rebound_volume_divergence([1.6, 1.8], [0.9, 0.7]) is True
     assert m_dv_001_rebound_volume_divergence([0.9, 0.8], [1.0, 0.9]) is False
@@ -245,3 +255,13 @@ def test_trend_score():
     _, s3 = trend_score(chop, [c + 0.5 for c in chop], [c - 0.5 for c in chop],
                         [], atr, period=20)
     assert s3 < 40, f"震荡应低分, got {s3}"
+    # 空头趋势：方向感知合规（阶段0-4 勘误回归——旧版仅统计递增，空头被低估）
+    dn = [200 - 0.5 * i for i in range(n)]
+    dn_highs = [c + 0.5 for c in dn]
+    dn_lows = [c - 0.5 for c in dn]
+    dn_pivots = [SwingPoint("H", 199 - 0.5 * i, i) for i in (5, 15, 25, 35)] + \
+                [SwingPoint("L", 197 - 0.5 * i, i) for i in (10, 20, 30)]
+    d4, s4 = trend_score(dn, dn_highs, dn_lows, dn_pivots, atr,
+                         period=20, higher_tf_dir=-1)
+    assert d4 == -1
+    assert s4 > 70, f"空头趋势应高分（方向感知合规）, got {s4}"

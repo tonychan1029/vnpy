@@ -14,12 +14,17 @@ I_DT, I_O, I_H, I_L, I_C, I_V, I_OI = range(7)
 def wedge_three_push(
     bars: list,
     window: int = 30,
-    min_pushes: int = 3,
     decay_ratio: float = 0.67,
 ) -> dict | None:
-    """信号#9 楔形三推：三段推幅递减（p3<p2<p1，第三推≤decay_ratio×第一推）。
+    """信号#9 三推楔形（幅度衰减版；语义对齐生产 WedgeThreePushDetector）。
 
-    返回 {"direction": "short"（三推上升=看跌）/"long", "pushes": [p1,p2,p3]} 或 None。
+    上升三推=short：依次抬高的三个摆动高点 H1<H2<H3，各推幅
+    amp_i = H_i − 其前低；amp1>amp2>amp3 且 amp3 ≤ decay_ratio×amp1
+    （动能衰竭）。下降三推=long 镜像（L1>L2>L3，amp 为前高到 L_i 幅度）。
+    返回 {"direction": "short"/"long", "pushes": [amp1,amp2,amp3]} 或 None。
+
+    勘误（2026-10-15 阶段0-4）：旧版用价格序（H1>H2>H3 判 short）且
+    decay_ratio 死参数——与定义/生产分叉，本版改为幅度衰减口径并启用参数。
     """
     if len(bars) < window:
         return None
@@ -29,23 +34,47 @@ def wedge_three_push(
     if n < 10:
         return None
 
-    # 找局部极值（简化：3根窗口局部极值）
-    piv_h, piv_l = [], []
+    # 局部极值（3 根窗口）→ 压缩为交替序列（同类取更极端者）
+    ext = []
     for i in range(2, n - 2):
         if closes[i] > closes[i - 1] and closes[i] >= closes[i + 1]:
-            piv_h.append((i, closes[i]))
+            ext.append([i, "H", closes[i]])
         if closes[i] < closes[i - 1] and closes[i] <= closes[i + 1]:
-            piv_l.append((i, closes[i]))
+            ext.append([i, "L", closes[i]])
+    alt: list[list] = []
+    for e in ext:
+        if alt and alt[-1][1] == e[1]:
+            if (e[1] == "H" and e[2] >= alt[-1][2]) or \
+                    (e[1] == "L" and e[2] <= alt[-1][2]):
+                alt[-1] = e
+        else:
+            alt.append(e)
 
-    if len(piv_h) >= 3:
-        p1, p2, p3 = piv_h[-3], piv_h[-2], piv_h[-1]
-        if p1[1] > p2[1] > p3[1]:
-            return {"direction": "short", "pushes": [p1[1], p2[1], p3[1]]}
+    def push_amps(pivots3, opposite):
+        amps = []
+        for p in pivots3:
+            prev = [x for x in opposite if x[0] < p[0]]
+            base = prev[-1][2] if prev else None
+            if base is None:
+                base = min(closes) if p[1] == "H" else max(closes)
+            amps.append(abs(p[2] - base))
+        return amps
 
-    if len(piv_l) >= 3:
-        p1, p2, p3 = piv_l[-3], piv_l[-2], piv_l[-1]
-        if p1[1] < p2[1] < p3[1]:
-            return {"direction": "long", "pushes": [p1[1], p2[1], p3[1]]}
+    hs = [e for e in alt if e[1] == "H"][-3:]
+    ls_all = [e for e in alt if e[1] == "L"]
+    if len(hs) == 3 and hs[0][2] < hs[1][2] < hs[2][2]:
+        amps = push_amps(hs, ls_all)
+        if amps[0] > 0 and amps[0] > amps[1] > amps[2] and \
+                amps[2] <= decay_ratio * amps[0]:
+            return {"direction": "short", "pushes": amps}
+
+    ls = [e for e in alt if e[1] == "L"][-3:]
+    hs_all = [e for e in alt if e[1] == "H"]
+    if len(ls) == 3 and ls[0][2] > ls[1][2] > ls[2][2]:
+        amps = push_amps(ls, hs_all)
+        if amps[0] > 0 and amps[0] > amps[1] > amps[2] and \
+                amps[2] <= decay_ratio * amps[0]:
+            return {"direction": "long", "pushes": amps}
     return None
 
 

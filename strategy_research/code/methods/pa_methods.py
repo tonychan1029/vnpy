@@ -33,9 +33,9 @@ def m_kb_001_is_pin(bar, bull: bool) -> bool:
     lower_wick = min(bar.open_price, bar.close_price) - bar.low_price
     upper_wick = bar.high_price - max(bar.open_price, bar.close_price)
     if bull:
-        outer = bar.close_price >= bar.low_price + rng / 3
+        outer = bar.close_price >= bar.low_price + rng * (2.0 / 3.0)  # 反转侧 1/3（quantlib 权威口径）
         return lower_wick >= 2 * body and outer
-    outer = bar.close_price <= bar.high_price - rng / 3
+    outer = bar.close_price <= bar.high_price - rng * (2.0 / 3.0)
     return upper_wick >= 2 * body and outer
 
 

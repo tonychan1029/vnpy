@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+# 行布局常量（全模块统一引用，禁止硬编码数字）
+I_DT, I_O, I_H, I_L, I_C, I_V, I_OI = range(7)
+
 
 def retracement_fraction(
     leg_high: float,
@@ -63,6 +66,6 @@ def support_held(
         return False
     threshold = support * (1 - buffer_pct)
     for bar in bars[-confirm_bars:]:
-        if bar[4] < threshold:
+        if bar[I_C] < threshold:
             return False
     return True
