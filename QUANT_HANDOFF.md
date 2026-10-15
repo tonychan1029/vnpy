@@ -280,18 +280,9 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   （~半天+评审;主动撤单,暴露归零）(b) 维持 TTL 自然过期（RS018 方案 C 原批准
   设计,零代码,暴露 ≤2 交易日,换月预警已上线兜底）。实施者建议 (b) 先行,
   (a) 列入观察期后迭代——**待用户选**。
-- **HO006**:✅ 已实施,10-16 04:15 窗口部署（staging/cron/试跑全就绪）。
-- **HO006 已实施**(quant-repo d17ae08,用户批复"同意一、二项"):A1 武装列表
-  ema_pullback 退役(TREND_SIGNAL_CATEGORIES+runner 回退同步)/A2 入选跟踪
-  JSONL(/opt/aiprj/data/selection_tracking.jsonl,50MB 轮转,异常不阻断投递,
-  挂接 _push_scan_to_queue 入口与 notify 开关解耦)/A3 测试断言;
-  PoolEntry @dataclass 一度被误编辑吞掉已复原(实施插曲,最终态已验)。
-- **HO005 MAJ-1 修复**(2bba912):重检节流跨日清零。
-- 测试:40 passed(五文件)+selfcheck 82 exit 0。
-- **Round-10 独立评审进行中**(phase_a_round10_review.md 骨架已建)。
-- **部署就绪待评审 PASS**:poolscan.py+selection_runner.py 两文件 →
-  selection-runner 重启;窗口 10-16 04:15(与 ho007r2 网关部署 04:05 错峰,
-  后者为另一会话所有)。staging 待评审后执行。
+- **HO006**:✅ 已实施,10-16 04:15 窗口部署（staging/cron/试跑全就绪；
+  实施细节=d17ae08,round-10 评审 PASS-WITH-FINDINGS 已归档
+  reviews_v2/phase_a_round10_review.md,MAJ-1 部署前置已闭环 2bba912）。
 
 ## 2026-10-14 午后:HO004 实施 + HO005 阶段 0+1 安全子集(评审中)
 - **HO004 已实施**(vnpy a269f8e0+bbba8078):ContextTaggerV1 A1 退役 v1
