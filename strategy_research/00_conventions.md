@@ -1,5 +1,15 @@
 # 文档管理规范（Conventions）
 
+## 0. 根部联保文档与生产策略登记
+
+- **根部联保文档**（living，状态变化当轮同步）：`RESEARCH_HANDOFF.md`（交接胶囊+治理）、
+  `STATUS.md`（管线总览）、`STRATEGY_TABLE.md`（策略台账）、`TEMPLATE_*.md`（固化框架模板）
+- **生产在运策略**（quant-repo 仓，如 LinuxSignalScanner/市场选品扫描/RegimeSwitch）
+  **不占用 S-XXX 序列**：以类名登记于 `STRATEGY_TABLE.md` "零"节；研究补课报告
+  （20_research/RS-XXX）按类名引用；研究产出落地为生产选品策略时，才走
+  S-XXX/CAND 立项流程
+- 固化框架模板（TEMPLATE_*.md）：schema/边界冻结，变更走 HO（附《交付价值评估》）
+
 ## 1. 命名规则
 
 ### 策略主文档（一策略一文档）
