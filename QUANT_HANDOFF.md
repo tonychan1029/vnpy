@@ -283,6 +283,10 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
 - **HO006**:✅ 已实施,10-16 04:15 窗口部署（staging/cron/试跑全就绪；
   实施细节=d17ae08,round-10 评审 PASS-WITH-FINDINGS 已归档
   reviews_v2/phase_a_round10_review.md,MAJ-1 部署前置已闭环 2bba912）。
+- **TTL 定案(10-15 午,用户)**:valid_bars 12→8（TTL=选品周期×8：60m→8h、
+  1d→8d）,随 HO006 同批 10-16 04:15 部署(poolscan+runner md5 已更新
+  dd6d7939/52618f1b);**结构破坏即出池=长期方向暂缓**——依赖形态/信号准确
+  量化（v1 reversal LR0.82、ema_pullback 否决同源教训）,待量化能力成熟再立项。
 
 ## 2026-10-14 午后:HO004 实施 + HO005 阶段 0+1 安全子集(评审中)
 - **HO004 已实施**(vnpy a269f8e0+bbba8078):ContextTaggerV1 A1 退役 v1
