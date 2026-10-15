@@ -501,7 +501,28 @@ PYTHONPATH=/opt/aiprj/selection:/opt/aiprj /opt/aiprj/venv/bin/python /opt/aiprj
 - **09:00 桶抑制说明**: 10-14 04:07 runner 重启后首个 09:00 桶按开盘桶抑制设计跳过,当日首个评估节点=10:00(预期行为,非缺陷)
 - **工具**: pwsh→ssh 复杂脚本用 `base64 -d | bash` 已多轮实证可靠;远程单行内层禁用双引号
 
-## 用户偏好/纪律(累计)
+## 2026-10-15 15:1x 三决议执行 + EMA20 退役上线 + 状态快照
+- **决议① ✅ 已实施+部署**（盘后窗口授权内，15:1x）：引擎三文件（runtime
+  ALL-allowlist 移除 ema_pullback/REASON_DEFAULT_SIGNALS TREND_FOLLOW 移除/
+  EmaPullbackDetector 加门控默认关 enable_ema_pullback=False）→ 106 部署
+  DEPLOY_OK（PID 级验证+MCP 启动+preflight 6/6）；测试对齐（tagger 4+全套件
+  80 passed）。**MTG004 否决形态的通知路径正式闭环。**
+- **决议② ✅ 按建议**：TTL 自然过期维持（零动作；(a) REVOKE 链列入观察期后
+  迭代，前置=RS018 前提答复）。
+- **决议③ 调查结论**：**无合规自动保活机制**——hermes weixin 平台代码
+  （weixin.py）确定性拒绝 bot-initiated 发送（用户消息=会话密钥，平台规则；
+  "retrying without context_token" 也不解决 prepare failed）。选项=手机端
+  自动化（Tasker 类，用户侧自担风控）/App ⚡ 为主通道（已就绪）/Hermes 上游
+  立项调查。现状：App 全量可达 ✓，微信尽力而为（互动后 ~1h 窗口）。
+- **微信重试策略已按用户规格生效**（watchdog_retry.py：attempt2 +30s/
+  attempt3 +3min/3 次丢弃/1h horizon 不变；hermes-gateway 重启生效）。
+- 提醒在队：10-16 09:30 晨检（ho007r2 部署核验+HO006 效果+tracking 首写+
+  影子第 3 天）、10-16 15:10、10-21 09:30 差异清单。
+- ⚠️ 范围外观察：研究侧会话正并行高频产出（RS021 深挖/quantlib/STRATEGY_
+  TABLE 等未入库批次持续增长）——合并归 ENG（新规则），待其会话收尾统一
+  拾取。
+- 双渠道验收注入（13:1x）：⚡ 择时（pa-signal）与 📋 选品（pa-latest-monitor）
+  各一条 TEST——待用户手机确认两渠道各收到、类目标签正确。
 UI 界面优先,拒绝 SSH 日常使用;升级/重启只允许凌晨 04:00-05:15 窗口;**106 试运行期间放宽:盘后（15:00 收线后）可部署（2026-10-15 用户定；正式运行恢复窗口制）**;决策类先问再做;单套 vnpy 不分叉,不重复造轮子;研究回测盘后跑与生产零耦合;**实施完成必须独立评审,通过才能提交部署**;流程图/设计稿先审后做;上下文不稳时以本胶囊+todo 为准,勿凭记忆;**同一任务执行超 20 分钟仍在原地打转=立即中断出来,先解决问题再重新执行(2026-10-13 晚新增;适用于命令反复失败重试/依赖安装卡顿/等外部响应/会话内反复无进展等一切场景——先诊断根因,处置后重跑,禁止干耗)**。
 
 ## 角色与部署权限（2026-10-15 用户定，项目规则）
