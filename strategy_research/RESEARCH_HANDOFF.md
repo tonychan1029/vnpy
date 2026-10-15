@@ -156,6 +156,14 @@
   NOTE v2（HO003-HO007 全量）
 
 ## 待办（依赖驱动）
+0. **阶段0 地基修复（ROADMAP §1A，全局前置，M0=10 月下旬）**：
+   0-1 前视纪律+mom6 as_of 复算（CAND-007 已降级 gated，复算待跑）；
+   0-2 双口径强制（cost.py 单一实现，RS020/RS021 带成本复算——A1/A6 决策
+   以复算为准）；0-3 死刑传导（引擎侧已落地 0e07095b+HO006 部署；残留
+   LLM 口径=HO008-A6；开关表+代码断言=HO008-B5）；0-4 缺陷修复（工程侧
+   =HO008-A2/A3/A4+B1/B2；研究侧=RES 自查清单 methods/quantlib）；
+   0-5 配置对账（min_rr=HO008-A1；exec_tf 核查=B4；TTL 已生效、兜底对齐
+   =B6；影子漏比=B3）
 1. **HO008 签批（用户）**：审计缺陷修复与传导闭环移交单（draft）——A 组
    P0（R10 min_rr 1.6 补部署/StructurePullback 空头/SecondBreakout 单位/
    D11 守卫/配置卫生/LLM 残留）+ B 组 P1 + C 组 P2；签批后转 final 发工程
