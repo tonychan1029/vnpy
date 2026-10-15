@@ -164,13 +164,20 @@
    =HO008-A2/A3/A4+B1/B2；研究侧=RES 自查清单 methods/quantlib）；
    0-5 配置对账（min_rr=HO008-A1；exec_tf 核查=B4；TTL 已生效、兜底对齐
    =B6；影子漏比=B3）
-1. **HO008 签批（用户）**：审计缺陷修复与传导闭环移交单（draft）——A 组
-   P0（R10 min_rr 1.6 补部署/StructurePullback 空头/SecondBreakout 单位/
-   D11 守卫/配置卫生/LLM 残留）+ B 组 P1 + C 组 P2；签批后转 final 发工程
-2. **研究侧自查（RES，HO008 平行）**：methods 量纲/trend_score 方向/阈值
+1. **HO008 已签批 final（2026-10-15）→ 工程实施**：NOTE_HO008拾取_
+   20261015.md 粘帖即用；批次=A 组 P0 小批次（R10/空头方向/窗口单位/
+   D11 守卫/配置卫生/LLM 残留）→ B 组 P1 随基线批次（楔形锚点/量能 NaN/
+   影子 key_levels/exec_tf 核查/传导自动化/TTL 兜底）→ C 组 P2 联合；
+   各批研究侧验收（预注册 runner+锚自检+48h 影子观察）
+2. **臂4 v4 窗口化预注册已批（2026-10-15）→ 待执行**：
+   assets/RS019/hybrid_v4_preregistration.md——主臂 4c'（窗口化吸收确认，
+   腿龄窗内任一已收 60m bar），mom6 降级分解呈现；**执行前置=阶段0-1/0-2**
+   （as_of 审计+cost.py 双口径）；主判读=可交易口径 >0 且 >4a 同口径锚，
+   n≥30 护栏，n<30 即 inconclusive 终局
+3. **研究侧自查（RES，HO008 平行）**：methods 量纲/trend_score 方向/阈值
    统一/quantlib wedge 死参/bar[4]/M-EX-003 约束代码化；RS021 台账勘误
-   （score≥80 统一 deep_dive 口径 n=451/+4.49% 并标注重尾）；CAND-007 降级
-   gated；RS016 确认触发臂预注册；H2L2/FAKE_BREAKOUT 处置议题列 MTG007
+   （score≥80 统一 deep_dive 口径 n=451/+4.49% 并标注重尾）；RS016 确认
+   触发臂预注册；H2L2/FAKE_BREAKOUT 处置议题列 MTG007
 3. **HO005 验收收尾**：工程单测/集成记录归档（研究侧复核）+ 下次真实换月
    生产观察（最终验证）
 4. **RS019 臂4 后续路径（待用户裁决，问卷在途）**：窗口化吸收确认（推荐预
