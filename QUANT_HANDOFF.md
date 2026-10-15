@@ -400,6 +400,56 @@ patiming-engine(8801 MCP) / selection-runner / quant-webhook / patiming-webhook 
   10-21 09:30 差异清单提交用户确认后进 Phase B**
 - **门**: Phase A 完成自检→第四轮独立评审→PASS→影子跑(ShadowSink,≥N 交易日)→差异清单用户确认→Phase B 切换(旧 runner .bak+cron 回滚)→质量跟踪(胜率/RR 达成/出场复盘)→二期择时归化→退役旧池引擎
 
+## 2026-10-15 晨 · 选品通知重复 + cloudwebhook 收不到(双症同因,已修复)
+- **症状(用户报)**: 同一条 CU0 选品通知在 hermes 微信收到多次(标题时间戳每次不同,如 07:43:23);
+  cloudwebhook 一条未收到。
+- **根因链**:
+  ① **通道失配**: 客户端/Worker 侧今日 **00:51:56** 已轮换到**新 12 字符**值
+     (cloudwebhook-android `local.properties` 实证),106 侧 `gateway_config.yaml` 与
+     `/home/tony/.hermes/.env` 仍是**旧 10 字符**值(`2ef60b6cb4`,自 ≤10-13 未轮换)
+     → custom 腿自 **00:55:44** 起 100% `401 Unauthorized`
+     (今日累计 1 万+行日志,约 5200 次请求);hermes 腿独自承担投递。
+  ② **重试风暴(重复的真因,非防抖)**: `FanoutSender` 部分失败时保留**全部** target pending,
+     `gateway_loop` 仅在整批成功后 `buffer.clear()` → 坏通道把好通道一起拖入每 ~3-4s 一轮的
+     **无界重试**。实证: 02:30:23 起 401 异常 **5181** 次、"已推送"=0、内存 buffer 里卡着
+     02:30 的 CU0 → 每轮用 `datetime.now()` 重渲染标题,这才是用户看到多个不同时间戳同一条的机制。
+    (防抖 window=3s / max_staleness=30s 本身工作正常。)
+- **处置(用户令"修复"/"106改新")**: 先 `stop quant-webhook`(落掉内存 buffer,避免 02:30 过期信号
+  在通道恢复后补推)→ 备份 → 106 三处 secret 改为 Worker 实测可接受值(`gateway_config.yaml`
+  的 custom_secret + custom.secret、`/home/tony/.hermes/.env` 的 WEBHOOK_SECRET)→ 起服 →
+  TEST 注入验证。**实证**: 直连 Worker 旧值(10 字符) 401 / 新值(12 字符) 200; 注入后
+  `已推送 1 条合并信号`(两腿全成),重启后 401=0、CU0 补推=0、队列 llen=0、yaml 可解析、
+  与修复前仅差 secret 值(文件 1549→1553B = 10 字符带引号 → 12 字符带引号,引号风格已还原)。
+- **备份**: `gateway_config.yaml.bak_secretfix_20261015_082246`、`.bak_precleanup_0824xx`、
+  `.bak_quotestyle_08xx`、`/home/tony/.hermes/.env.bak_secretfix_20261015_082246`(值未落任何日志)。
+- **偏差与更正**:
+  ① 本次 restart 落在 **08:22**(非 04:00-05:15 窗口): 重试风暴只能靠停进程清内存 buffer,
+     属必要例外(服务当时已在故障态且持续打扰用户);
+  ② **更正(本会话自查,勿沿用早前表述)**: 曾据 python 正则把"另一写入者/值 sha `a4c44bfaaf`"
+     写入记录——实为**测量假象**: 该正则把值的**双引号计入长度**,`a4c44bfaaf` = 带引号旧值的
+     sha。事实核对: `.bak_secret_20261015_2` 与本批备份**逐字节相同**(md5 `471bab78…`),
+     106 旧值一直是 10 字符带引号,**无并发写入者**;现 106 三处 = 与 Worker/客户端一致的
+     12 字符值 `7bc2c8e581`。教训: 比对 secret 一律**先剥引号**(`awk`/yaml 解析),勿用裸
+     `\S+` 直接哈希整段。
+  ③ **未做(需独立评审)**: `FanoutSender` 仍非幂等(任一腿永久失败 → 无界重复推送),且卡在
+     buffer 里的信号绕过 max_staleness 过期闸门 → 见 `60_decisions/HO007`(草案待批)。
+- **顺带**: HO006 两项仍未部署(`/opt/aiprj/data` 不存在 → `selection_tracking.jsonl` 无;
+  `poolscan.py:160` 武装列表仍为 `["ema_pullback","structure_pullback"]`)。
+- **HO007 通知网关加固(当日 10:13 已上线, quant-repo=97a4896)**: 三轮独立评审
+  (一轮 PASS-WITH-FINDINGS 并实证 **D1 真实存量缺陷**=首个成功批次后每批零请求却记
+  "已推送";二轮确认整改并新发现 round-2 MAJOR=重试被新到信号拖延+暂存信号被 A3 整批
+  老化(探针 20 丢 13);三轮 delta 复核 PASS,变异验证非空转,60 信号快流死腿探针
+  60/60 恰好一次 0 重复)。落地: A1 幂等 fanout(只重试失败腿)/D1 `start_batch` 批次
+  完成语义/A2 批次预算钳制进时效预算(`attempt_budget`)+放弃日志附符号/A3 出队与发送前
+  共用 `_signal_age/_is_stale`/`--test` 非 fanout `targets` 未绑定(存量)顺带修。
+  部署 10:13 守卫式 `--force-now` **DEPLOY_OK** `gw_md5=8eb7fd4f`,smoke 两批次双通道
+  全达(旧代码第二批为幻影=D1 生产实证);脚本 `deploy/ho007_gateway_deploy_20261015.sh`
+  (RUNBOOK 台账已记)。遗留 INFO: at-least-once(接收端按 signal_id 去重可消)、进程崩溃
+  丢内存批次(ack 队列,超范围)、`test_gateway_live.py` 需本地 redis+config 才能跑。
+  测试基线: `tests/test_webhook_gateway.py` 16 例 + `test_patiming_webhook.py` 5 例
+  全绿(venv=D:\AIprj\vnpy\.venv);本机 httpx loopback 需 `NO_PROXY=127.0.0.1,localhost`
+  (注册表代理 ProxyServer=127.0.0.1:7890 被 httpx 采信,非代码问题)。
+
 ## 验证速查
 ```bash
 ssh tony@192.168.50.106
