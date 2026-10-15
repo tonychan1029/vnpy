@@ -58,7 +58,7 @@ author: RES（团队维护）
 | 轮次 | 日期 | 动作 | 结果 |
 |---|---|---|---|
 | R1 | 2026-10-15 | 首轮清理：删除 5 个 `__pycache__`（24 个 .pyc，可再生且 git 已忽略）；全范围盘点（228 文件：md 122/py 61/csv 19/png 2）；核查 .gitignore 覆盖（*.pyc ✅）；盘点未提交变更（6 修订+38 新文件，2026-10-14/15 研究产出）| 缓存清零；制度立本文件；未提交清单移交工程（见下） |
-| R1 归档清单 | 2026-10-15 | 建议工程批量提交节点：①RS017-RS021 五研究报告+assets；②HO005/006/007+NOTE+DEC006；③quantlib 工具库+50 测试；④RS019 臂4 v3+HO004 验收三件（acceptance/boundary_diag/review）；⑤三治理文件+TEMPLATE+STRATEGY_TABLE+中期计划 | 待工程拾取（或经用户裁决改研究侧自主提交） |
+| R1 归档清单 | 2026-10-15 | 建议工程批量提交节点：①RS017-RS021 五研究报告+assets；②HO005/006/007+NOTE+DEC006；③quantlib 工具库+50 测试；④RS019 臂4 v3+HO004 验收三件（acceptance/boundary_diag/review）；⑤三治理文件+TEMPLATE+STRATEGY_TABLE+中期计划 | **已由研究侧自主提交（用户裁决授权）**：779b817a（research-code）/ c73c0e02（reports+handoffs）/ 23f915d5（governance+roadmap+housekeeping）——strategy_research 工作区清零 |
 
 ## 4. 维护记录
 
